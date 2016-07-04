@@ -102,16 +102,22 @@ uint8_t txbuf1[] = {
 	uint8_t txbuf10[] = {
 		0xAA, 0xAA, 0xAA, 0xAA,  //4 
 		0xAA, 0xAA, 0xAA, 0xAA,  //8 
-		0xFF, 0x00, 0xFF, 0x00,  //12
-		0xFF, 0x00, 0xFF, 0x00,  //16
-		0xFF, 0x00, 0xFF, 0x00,  //20
-		0x00, 0x00, 0x00, 0x00,  //24
-		0x00, 0x00, 0x00, 0x00,  //28
-		0x00, 0x00, 0x00, 0x00,  //32
-		0x00, 0x00, 0x00, 0x00,  //36
+		0xFF, 0xFF, 0x00, 0x00,  //12
+		0xFF, 0xFF, 0x00, 0x00,  //16
+		0xFF, 0xFF, 0x00, 0x00,  //20
+		0xF0, 0xF0, 0xF0, 0xF0,  //24
+		0xF0, 0xF0, 0xF0, 0xF0,  //28
+		0xF0, 0xF0, 0xF0, 0xF0,  //32
+		0xBA, 0xDE, 0xAF, 0xFE,  //36
 		0x00, 0x00, 0x00, 0x00,  //40
-		0xFF, 0xFF, 0xFF, 0xFF,  //44
-		0xFF, 0xFF, 0xFF, 0xFF,  //48
+		0xFF, 0xFF, 0x00, 0x00,  //44
+		0xFF, 0xFF, 0x00, 0x00,  //48
+		0x00, 0x00, 0x00, 0x00,  //52
+		0xBA, 0xDE, 0xAF, 0xFE,  //56
+		0x00, 0x00, 0x00, 0x00,  //60
+		0xFF, 0xFF, 0x00, 0x00,  //64
+		0xFF, 0xFF, 0x00, 0x00,  //68
+		0xFF, 0xFF, 0x00, 0x00,  //72
 };
 
 	uint8_t txbuf_tda[] = {
@@ -135,7 +141,42 @@ uint8_t txbuf1[] = {
 		0x69, 0x69, 0x66, 0x66//72bytes = 576bits
 };
 
+uint8_t txbuf_tda_neu[] = {
+		0x00, 0x00, 0x00, 0x00, //4
+		0x00, 0x00, 0x00, 0x00, //8
+		0x00, 0x00, 0x00, 0x00, //12
+		0x00, 0x15, 0x00, 0x11, //16
+		0x22, 0x33, 0x44, 0x55, //20
+		0x66, 0x77, 0x88, 0x99, //24
+		0xAA, 0x00, 0x11, 0x22, //28
+		0x33, 0x44, 0x55, 0x66, //32
+		0x77, 0x88, 0x99, 0xAA  //36
+};
 
+upsample(uint8_t * data_in, uint8_t * data_out, uint8_t len)
+{
+	int i, j, data_ups_pointer;
+	data_ups_pointer = 0;
+	uint16_t tempout;
+	for(i=0; i<len;i++) {
+		tempout = 0;
+		for(j=0; j<8;j++) {
+			if(data_in[i] & (1<<j)) {
+				tempout += (3<<(j*2));
+			}
+		}
+		data_out[data_ups_pointer] = (tempout & 0x00FF);
+ 		data_out[data_ups_pointer+1] = ((tempout & 0xFF00) >> 8); 
+		data_ups_pointer += 2;
+	}
+}
+
+manchester_encode(uint8_t * data_in, uint8_t * data_out, uint8_t len)
+{
+	int i;
+	for(i=0; i<len; i++) 
+		data_out[i] = data_in[i] ^ (0xAA);
+}
 
 static void print_usage(const char *prog)
 {
@@ -374,17 +415,13 @@ int main(int argc, char *argv[])
 		write_subreg(&lprf_hw, SR_TX_TIME, 256);
 
 		printf("write frame            ");
-		uint8_t len = 72;
-		uint8_t *txbuf = txbuf_tda;
-		write_frame(&lprf_hw, txbuf, len);   //48 bytes = 384bits or symbols
-		//write_frame(&lprf_hw, txbuf, len);   //96
-		//write_frame(&lprf_hw, txbuf, len);   //144
-		//write_frame(&lprf_hw, txbuf, len);   //192bytes = 1536bits or symbols
-		//write_frame(&lprf_hw, txbuf, len);   //240
-		//write_frame(&lprf_hw, txbuf, len);   //288
-		//write_frame(&lprf_hw, txbuf, len);   //336
-		//write_frame(&lprf_hw, txbuf, len);   //384
-		//write_frame(&lprf_hw, txbuf, len);   //432bytes = 3456bits or symols
+		uint8_t payload_len = 36;
+		uint8_t *payload_ups = (uint8_t*) malloc(sizeof(uint8_t) * payload_len * 2);
+		uint8_t *payload_mod = (uint8_t*) malloc(sizeof(uint8_t) * payload_len * 2);
+		upsample(txbuf_tda_neu, payload_ups, payload_len);
+		manchester_encode(payload_ups, payload_mod, payload_len*2);		
+
+		write_frame(&lprf_hw, payload_mod, payload_len*2);   //48 bytes = 384bits or symbols
 		printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
 
 
