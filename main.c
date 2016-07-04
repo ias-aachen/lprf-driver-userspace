@@ -141,6 +141,66 @@
         	           0x00, 0x00, 0x00, 0x00,  //40 
 };
 
+uint8_t txbuf_tda_mod[] = {
+			0xAA, 0xAA, 0xAA, 0xAA, //4
+			0xAA, 0xAA, 0xAA, 0xAA, //8
+			0xAA, 0xAA, 0xAA, 0xAA, //12
+			0xAA, 0xAA, 0xAA, 0xAA, //16
+			0xAA, 0xAA, 0xAA, 0xAA, //20
+			0xAA, 0xAA, 0xAA, 0xAA, //24
+			0xAA, 0xAA, 0xA9, 0x99, //28
+			0xAA, 0xAA, 0xA9, 0xA9, //32
+			0xA6, 0xA6, 0xA5, 0xA5, //36
+			0x9A, 0x9A, 0x99, 0x99, //40
+			0x96, 0x96, 0x95, 0x95, //44
+			0x6A, 0x6A, 0x69, 0x69, //48
+			0x66, 0x66, 0xAA, 0xAA, //52
+			0xA9, 0xA9, 0xA6, 0xA6, //56
+			0xA5, 0xA5, 0x9A, 0x9A, //60
+			0x99, 0x99, 0x96, 0x96, //64
+			0x95, 0x95, 0x6A, 0x6A, //68
+			0x69, 0x69, 0x66, 0x66  //72bytes = 576bits
+};
+
+uint8_t txbuf_tda_unmod[] = {
+			0x00, 0x00, 0x00, 0x00, //4
+			0x00, 0x00, 0x00, 0x00, //8
+			0x00, 0x00, 0x00, 0x00, //12
+			0x00, 0x15, 0x00, 0x11, //16
+			0x22, 0x33, 0x44, 0x55, //20
+			0x66, 0x77, 0x88, 0x99, //24
+			0xAA, 0x00, 0x11, 0x22, //28
+			0x33, 0x44, 0x55, 0x66, //32
+			0x77, 0x88, 0x99, 0xAA  //36bytes = 288bits
+};
+
+
+upsample(uint8_t * data_in, uint8_t * data_out, uint8_t len)
+{
+	int i, j, data_ups_pointer;
+	data_ups_pointer = 0;
+	uint16_t tempout;
+	for(i=0; i<len;i++) {
+		tempout = 0;
+		for(j=0; j<8;j++) {
+			if(data_in[i] & (1<<j)) {
+				tempout += (3<<(j*2));
+			}
+		}
+		//write out tempout to data_out and correct endianness 
+		data_out[data_ups_pointer] = ((tempout & 0xFF00) >> 8); 
+		data_out[data_ups_pointer+1] = (tempout & 0x00FF);
+		data_ups_pointer += 2;
+	}
+}
+
+manchester_encode(uint8_t * data_in, uint8_t * data_out, uint8_t len)
+{
+	int i;
+	for(i=0; i<len; i++) 
+		data_out[i] = data_in[i] ^ (0xAA);
+}
+
 
 static void print_usage(const char *prog)
 {
@@ -304,144 +364,111 @@ int main(int argc, char *argv[])
 	write_reg(&lprf_hw, RG_CHIP_ID_L, 0x51);
 	
 	
-////	//when internal oscillator works ok:
-////	write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_OSC, 1);
-////	write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_PAD, 0);
-////	write_subreg(&lprf_hw, SR_CTRL_CLK_FALLB, 0);
-	//when internal oscillator does not work, supply clock externally 
-	write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_OSC, 0);
-	write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_PAD, 1);
-	write_subreg(&lprf_hw, SR_CTRL_CLK_FALLB, 0);
-	write_subreg(&lprf_hw, SR_OSCI_BUFFER_EN, 1);
-	write_subreg(&lprf_hw, SR_ULP_BUFFER_EN, 1);
-
-	printf("enable CLKREF -> CLKOUT and CLKPLL path\n");
-	write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 1);
-	write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 0);
+	printf("configure clock domains\n");
+	//enable CLKREF -> CLKOUT and CLKPLL path
 	write_subreg(&lprf_hw, SR_CTRL_CLK_CDE_OSC, 0);
 	write_subreg(&lprf_hw, SR_CTRL_CLK_CDE_PAD, 1);
-	write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0);	
-	write_subreg(&lprf_hw, SR_CTRL_CLK_IREF, 6);  //enable current for clock delay (CDE)
+	write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_OSC, 0);
+	write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_PAD, 1);
 	write_subreg(&lprf_hw, SR_CTRL_CLK_PLL_OSC, 0);
 	write_subreg(&lprf_hw, SR_CTRL_CLK_PLL_PAD, 1);
-	uint8_t regdata = read_reg(&lprf_hw, RG_CLK_MAIN);
-	printf("CLK_MAIN=0x%0.2X\n", regdata);
+	write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 1);
+	write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 0);
+	write_subreg(&lprf_hw, SR_CTRL_CLK_FALLB, 0);
+	write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0);	
+	write_subreg(&lprf_hw, SR_CTRL_CLK_IREF, 6);   //enable current for clock delay (CDE)
 
-	printf("configure PLL\n");
-	//Enable all LDOs
-	write_subreg(&lprf_hw, SR_LDO_A, 1);
+	printf("enable and configure LDOs\n");
+	write_subreg(&lprf_hw, SR_LDO_A, 1);           //Enable all LDOs
 	write_subreg(&lprf_hw, SR_LDO_PLL, 1);
 	write_subreg(&lprf_hw, SR_LDO_VCO, 1);
 	write_subreg(&lprf_hw, SR_LDO_TX24, 1);
-	//configure LDOs
-	write_subreg(&lprf_hw, SR_LDO_D_VOUT, 15);
+	write_subreg(&lprf_hw, SR_LDO_D_VOUT, 15);     //configure LDOs
 	write_subreg(&lprf_hw, SR_LDO_PLL_VOUT, 31);   //1.74V
-	write_subreg(&lprf_hw, SR_LDO_VCO_VOUT, 28);   //1.76V
+	write_subreg(&lprf_hw, SR_LDO_VCO_VOUT, 31);   //1.76V
 	write_subreg(&lprf_hw, SR_LDO_TX24_VOUT, 25);  //1.16V
-	//set channel
-	write_subreg(&lprf_hw, SR_PLL_CHN_INT, 105);
-	write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_H, 0);
-	write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_M, 0);
-	write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_L, 0);
-	write_subreg(&lprf_hw, SR_PLL_VCO_TUNE, 196); //set VCO tune word for 1696MHz an PLL_OUT   
-	write_subreg(&lprf_hw, SR_IREF_PLL_CTRLB, 0);
+
 	write_subreg(&lprf_hw, SR_PLL_BUFFER_EN, 1);
+	//write_subreg(&lprf_hw, SR_IREF_PLL_CTRLB, 0);
 	write_subreg(&lprf_hw, SR_PLL_EN, 1);
 
-	//reset PLL
-	write_subreg(&lprf_hw, SR_PLL_RESETB, 0);
-	write_subreg(&lprf_hw, SR_PLL_RESETB, 1);
+	uint8_t sm = 1;
+	if(sm == 0) {    	//set channel (no State machine)
+		write_subreg(&lprf_hw, SR_PLL_CHN_INT, 112);
+		write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_H, 0);
+		write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_M, 0);
+		write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_L, 0);
+		write_subreg(&lprf_hw, SR_PLL_VCO_TUNE, 152); //set VCO tune word for 1696MHz an PLL_OUT   
+		write_subreg(&lprf_hw, SR_IREF_PLL_CTRLB, 0);
+		write_subreg(&lprf_hw, SR_PLL_EN, 1);
+	} else {
+		//reset PLL
+		write_subreg(&lprf_hw, SR_PLL_RESETB, 0);
+		write_subreg(&lprf_hw, SR_PLL_RESETB, 1);
+		write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1); //disable CLKOUT
+
 	
 //===============change to state machine operation=========================
+		printf("configure center freq\n");
+		write_subreg(&lprf_hw, SR_WAKEUPONSPI, 0);          //disable wakeup modes	
+		write_subreg(&lprf_hw, SR_TX_CHAN_INT, 112);        //Set PLL divider, write PLL_CHN through statemachine,    //1792MHz an PLL_OUT
+		write_subreg(&lprf_hw, SR_TX_CHAN_FRAC_H, 0);       //for 2.4GHz output: sliding IF: 
+		write_subreg(&lprf_hw, SR_TX_CHAN_FRAC_M, 0);       //f_RF = 0.75 * f_vco = 0.75 * 32MHz * PLL_CHN
+		write_subreg(&lprf_hw, SR_TX_CHAN_FRAC_L, 0);
+		write_subreg(&lprf_hw, SR_PLL_VCO_TUNE, 152);       //set VCO tune word for 1792MHz an PLL_OUT
 
-	//disable wakeup modes
-	write_subreg(&lprf_hw, SR_WAKEUPONSPI, 0);
-	write_subreg(&lprf_hw, SR_WAKEUPONRX, 0);
-	write_subreg(&lprf_hw, SR_WAKEUP_MODES_EN, 0);
-	
-	write_subreg(&lprf_hw, SR_TX_CHAN_INT, 112);     //Set PLL divider, write PLL_CHN through statemachine,    //1792MHz an PLL_OUT
-	write_subreg(&lprf_hw, SR_TX_CHAN_FRAC_H, 0);    //for 2.4GHz output: sliding IF: 
-	write_subreg(&lprf_hw, SR_TX_CHAN_FRAC_M, 0);    //f_RF = 0.75 * f_vco = 0.75 * 32MHz * PLL_CHN
-	write_subreg(&lprf_hw, SR_TX_CHAN_FRAC_L, 0);
-	write_subreg(&lprf_hw, SR_PLL_VCO_TUNE, 152); //set VCO tune word for 1792MHz an PLL_OUT
+		printf("configure modulation\n");
+		write_subreg(&lprf_hw, SR_TX_ON_CHIP_MOD, 1);       //enable on-chip modulation
+		write_subreg(&lprf_hw, SR_PLL_MOD_EN, 1);           //enable modulation of PLL
+		write_subreg(&lprf_hw, SR_PLL_MOD_DATA_RATE, 1);    //set tx data rate to <500kBit/s
+		write_subreg(&lprf_hw, SR_TX_ON_CHIP_MOD_SP, 9);    //set TX data rate (3: 250kHz; 8: 20kHz; 9: 10kHz)
+		write_subreg(&lprf_hw, SR_PLL_MOD_FREQ_DEV, 4);     //set frequency deviation (4: 128kHz; 8: 256kHz at PLL_OUT)
+		write_subreg(&lprf_hw, SR_INVERT_FIFO_CLK, 0);      //invert FIFO clock to enable R/W operation to the fifo
+		write_subreg(&lprf_hw, SR_TX_SPI_FIFO_OUT_EN, 1);   //enable FIFO -> txpath
+		write_subreg(&lprf_hw, SR_PLL_TPM_COMP_EN, 0); //disable two point modulation compensation loop
 
-	
-	write_subreg(&lprf_hw, SR_INVERT_FIFO_CLK, 0);  //invert FIFO clock to enable R/W operation to the fifo
-	write_subreg(&lprf_hw, SR_PLL_MOD_EN, 1);       //enable on-chip modulation
-	write_subreg(&lprf_hw, SR_PLL_MOD_DATA_RATE, 1);//set tx data rate to <500kBit/s
-	write_subreg(&lprf_hw, SR_TX_PWR_CTRL, 15);     //set TX power control to maximum
-	
-	write_subreg(&lprf_hw, SR_TX_ON_CHIP_MOD_SP, 8);    //set TX_ON_CHIP_MOD_SP to ... (3: 250 kHz; 9: 10 kHz)
-	write_subreg(&lprf_hw, SR_TX24_MIXER_PON, 1);       //enable tx mixer
-	write_subreg(&lprf_hw, SR_TX24_EN, 1);              //enable 2.4GHz tx frontend
-	write_subreg(&lprf_hw, SR_TX_EN, 1);                //enable tx frontend
-	write_subreg(&lprf_hw, SR_TX_ON_CHIP_MOD, 1);       //enable on-chip modulation
-	write_subreg(&lprf_hw, SR_TX_SPI_FIFO_OUT_EN, 1);   //enable FIFO -> txpath
-	write_subreg(&lprf_hw, SR_TX_UPS, 3);               //set upsamling factor to 8
-	write_subreg(&lprf_hw, SR_TX_AMPLI_OUT_MAN_L, 240); // set lower 7 of 8 bits to 240
-	write_subreg(&lprf_hw, SR_PLL_TPM_COMP_EN, 0);      //disable two point modulation compensation loop
+		printf("enable state machine\n");
+		write_subreg(&lprf_hw, SR_SM_EN, 1);          //enable state machine
+		write_subreg(&lprf_hw, SR_TX_MODE, 0);        //set TX mode to 2.4GHz
 
-	//wait for TX24 to reach required voltage	
-	//char str[80];
-	//printf("<Enter>");
-	//scanf("%s", str);
-	usleep(40000);   //wait 20ms for TXVDD to settle
-	printf("\n");
-	printf("enable state machine\n");
-	write_subreg(&lprf_hw, SR_SM_EN, 1);          //enable state machine
-	write_subreg(&lprf_hw, SR_TX_MODE, 0);        //set TX mode to 2.4GHz
-	printf("change state to TX\n");
-	write_subreg(&lprf_hw, SR_SM_COMMAND, CMD_TX);   //change state to TX
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+		printf("set waiting times to max\n");
+		write_subreg(&lprf_hw, SR_POWER_TX_TIME, 256);
+		write_subreg(&lprf_hw, SR_PLL_PON_TIME, 256);
+		write_subreg(&lprf_hw, SR_TX_TIME, 256);
 
-	printf("write frame\n");
-	uint8_t len = 48;
-	uint8_t *txbuf = txbuf10;
-	write_frame(&lprf_hw, txbuf, len);   //160
-	write_frame(&lprf_hw, txbuf, len);   //320
-	write_frame(&lprf_hw, txbuf, len);   //480
-	write_frame(&lprf_hw, txbuf, len);   //640
-	write_frame(&lprf_hw, txbuf, len);   //800
-	write_frame(&lprf_hw, txbuf, len);   //960
-	write_frame(&lprf_hw, txbuf, len);   //1120
-	write_frame(&lprf_hw, txbuf, len);   //1280
-	write_frame(&lprf_hw, txbuf, len);   //1440
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	
-	printf("enable FIFO mode\n");
-	write_subreg(&lprf_hw, SR_FIFO_MODE_EN, 1);   //enable FIFO mode
-	write_subreg(&lprf_hw, SR_DIRECT_RX, 1);      //enable state transition TX -> RX if fifo empty
-	//write_subreg(&lprf_hw, SR_TX_IDLE_MODE_EN, 1);//enable state transition TX -> TX_IDLE if fifo empty
+		printf("write frame            ");
+		uint8_t payload_len = 36;
+		uint8_t *payload_ups = (uint8_t*) malloc(sizeof(uint8_t) * payload_len * 2);
+		uint8_t *payload_mod = (uint8_t*) malloc(sizeof(uint8_t) * payload_len * 2);
+		upsample(txbuf_tda_unmod, payload_ups, payload_len);
+		manchester_encode(payload_ups, payload_mod, payload_len*2);
+		write_frame(&lprf_hw, payload_mod, payload_len*2);   
+		printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
 
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));	
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));	
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-	printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+		printf("enable FIFO mode       ");
+		write_subreg(&lprf_hw, SR_FIFO_MODE_EN, 1);   //enable FIFO mode
+		printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
 
+		printf("change state to TX     ");
+		write_subreg(&lprf_hw, SR_SM_COMMAND, CMD_TX);   //change state to TX
+		write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0); //enable CLKOUT at TX_START
+		printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
 
-	int i;
-	uint8_t val;
-
-	for(i = 0; i < 100000; i++){
-		val = read_reg(&lprf_hw, RG_SM_STATE);	
-		if(val == 1){	
-			printf("receiving...\n");
-			printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X   i=%d\n", val, read_reg(&lprf_hw, RG_SM_FIFO), i);	
-			break;
+		int i;
+		uint8_t val;
+		for(i = 0; i < 100000; i++){
+			val = read_reg(&lprf_hw, RG_SM_STATE);	
+			if(!(val & 4)){	
+				write_subreg(&lprf_hw, SR_SM_COMMAND, CMD_NONE);  //reset CMD bitfield
+				write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1);       //disable CLKOUT at TX_STOP
+				printf("receiving...           ");
+				printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X   i=%d\n", val, read_reg(&lprf_hw, RG_SM_FIFO), i);	
+				break;
+			}
 		}
-	}
 
+		printf("                       SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X   i=%d\n", val, read_reg(&lprf_hw, RG_SM_FIFO), i); 
+	}
 	close(fd);
 
 	return ret;
