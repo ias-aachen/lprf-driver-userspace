@@ -30,8 +30,8 @@ upsample(uint8_t * data_in, uint8_t * data_out, uint8_t len)
 			}
 		}
 		//write out tempout to data_out and correct endianness 
- 		data_out[data_ups_pointer] = ((tempout & 0xFF00) >> 8); 
-    	data_out[data_ups_pointer+1] = (tempout & 0x00FF);
+		data_out[data_ups_pointer] = ((tempout & 0xFF00) >> 8); 
+		data_out[data_ups_pointer+1] = (tempout & 0x00FF);
 		data_ups_pointer += 2;
 	}
 }
