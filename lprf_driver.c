@@ -83,6 +83,17 @@ static bool lprf_writeable(unsigned int addr)
 	}	
 }
 
+//converts from MSB-first to LSB-first and back
+uint8_t reverse_bit_order(uint8_t source)
+{
+	int i;
+	uint8_t dest = 0;
+	for(i=0; i<8; i++) 
+		if(source & (1<<i)) 
+			dest += (1<<(7-i));
+	return dest;
+}
+
 // lprf_write_reg writes config data into registers
 static void lprf_write_reg(int fd, unsigned int addr, unsigned int data)
 {
@@ -204,6 +215,10 @@ void lprf_write_frame(int fd, uint8_t *txbuf, uint8_t len)
 	tx = (uint8_t*)malloc((len+1)*sizeof(uint8_t));
 	tx[0] = CMD_FRMW;
 	tx[1] = len;
+	int i;
+	for(i=0; i<len; i++) {
+		txbuf[i] = reverse_bit_order(txbuf[i]);
+	}
 	memcpy(tx+2, txbuf, len);
 	
 	struct spi_ioc_transfer tr = {
