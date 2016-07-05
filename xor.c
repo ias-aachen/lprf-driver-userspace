@@ -18,10 +18,6 @@ void byte_to_binary(char *target, int x)
     }
 }
 
-modify_char(char *target, char *source)
-{
-    target[3] = 'Y';
-}
 
 int main(void)
 {
@@ -53,6 +49,4 @@ int main(void)
     byte_to_binary(myout2, byte2);    
     printf("byte in : %s %s\n", myout1, myout2);
     
-
-
 }
