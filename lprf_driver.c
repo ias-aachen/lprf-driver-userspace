@@ -94,6 +94,95 @@ uint8_t reverse_bit_order(uint8_t source)
 	return dest;
 }
 
+/* for DEEPSLEEP state, CS of SPI bus has to stay low. This is not possible with HW-SPI.
+ * Therefore, the following hack is done: 
+ *                                                                
+ * --------+                                       +----------                        
+ * SPI     |                                       |                  
+ * Master  |                                       |  LPRF                
+ * (Raspi) |                                       |  Chip              
+ *         |         _______                       |                   
+ * CS (out)o--------|_______|-------o--------------o CS (in)                      
+ *         |          1k            |              |                   
+ *         |                        |              |
+ *  GPIO24 o----------|<|-----------+              |                                           
+ *         |                                       |
+ * --------+                                       +---------                                                                                  
+ * 
+ * If GPIO24 is high, the SPI bus functions normally. If GPIO24 is low, CS is kept low and 
+ * the LPRF chip stays in DEEPSLEEP mode. 
+ */
+int overwrite_CS(int state)
+{
+	FILE *fp = fopen("/sys/class/gpio/gpio24/value", "w");
+	if(state == 0)
+		fprintf(fp, "0");
+	else if(state == 1)
+		fprintf(fp, "1");
+	else {
+		perror("unknown input parameter passed, only 0 and 1 are legal values!\n");
+		return -1;
+	}
+	fclose(fp);
+}
+
+/* initialises GPIO24 (pin 18) as output. */
+int init_gpio()
+{
+	FILE *fp;
+	//first check if /sys/class/gpio/gpio24/value already exists with correct uid/gid
+	fp = fopen("/sys/class/gpio/gpio24/value", "w");
+	if (fp == NULL) {		 //fp is NULL, so fclose(fp) is not necessary		
+		//we need root permissions at least once to set up 
+		//GPIO24 and set its uid and gid to pi:pi
+		int uid = getuid();
+		if(uid != 0) {
+			perror("You're not root! Run this program with sudo\n");
+			exit(EXIT_FAILURE);
+		}
+
+		int res;
+		//export GPIO24
+		fp = fopen("/sys/class/gpio/export", "w");
+		if (fp == NULL) {
+			perror("could not open /sys/class/gpio/export\n");
+			return -1;
+		}
+		res = fprintf(fp, "24");
+		if (res != 2) {
+			perror("could not write to/sys/class/gpio/export\n");
+			fclose(fp);
+			return -1;
+		}
+		fclose(fp);
+
+		//set GPIO24 direction
+		fp = fopen("/sys/class/gpio/gpio24/direction", "w");
+		if (fp == NULL) {
+			perror("could not write to /sys/class/gpio/gpio24/direction\n");
+			fclose(fp);
+			return -1;
+		}
+		res = fprintf(fp, "out");
+		fclose(fp);
+		if (res != 3) {
+			perror("could not write to/sys/class/gpio/gpio24/direction\n");
+			fclose(fp);	
+			return -1;
+		}
+
+		//set uid and gid
+		res = chown("/sys/class/gpio/gpio24/value", 1000, 1000);
+		if(res) {
+			perror("unable to set gpio file ownership to pi:pi\n");
+			return -1;
+		}		
+	} else {
+		fclose(fp);
+	}
+}
+
+
 // lprf_write_reg writes config data into registers
 static void lprf_write_reg(int fd, unsigned int addr, unsigned int data)
 {

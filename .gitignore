@@ -1,3 +1,5 @@
 main
 xor
 reverse_bit_order
+use_case_deepsleep
+use_case_tx
