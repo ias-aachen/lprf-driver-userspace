@@ -215,8 +215,8 @@
 #define DEM_BTLE_MODE          0x40, 0x01, 0
 
 #define RG_DEM_SET             (0x41)
-#define SR_DEM_IQ_INV          0x41, 0x40, 6
-#define SR_DEM_IQ_CROSS        0x41, 0x30, 4
+#define SR_DEM_IQ_INV          0x41, 0x60, 5
+#define SR_DEM_IQ_CROSS        0x41, 0x10, 4
 #define SR_DEM_IF_SEL          0x41, 0x0C, 2
 #define SR_DEM_DATA_RATE_SEL   0x41, 0x03, 0
 
