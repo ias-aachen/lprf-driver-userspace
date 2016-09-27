@@ -432,9 +432,9 @@ int main(int argc, char *argv[])
 		write_subreg(&lprf_hw, SR_TX_MODE, 0);        //set TX mode to 2.4GHz
 
 		printf("set waiting times to max\n");
-		write_subreg(&lprf_hw, SR_POWER_TX_TIME, 256);
-		write_subreg(&lprf_hw, SR_PLL_PON_TIME, 256);
-		write_subreg(&lprf_hw, SR_TX_TIME, 256);
+		write_subreg(&lprf_hw, SR_SM_TIME_POWER_TX, 256);
+		write_subreg(&lprf_hw, SR_SM_TIME_PLL_PON, 256);
+		write_subreg(&lprf_hw, SR_SM_TIME_TX, 256);
 
 		printf("write frame            ");
 		uint8_t payload_len = 36;

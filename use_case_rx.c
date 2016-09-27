@@ -9,203 +9,14 @@
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
 #include <byteswap.h>
-#include </home/pi/spidev/lprf_registers.h>
+#include </home/pi/lprf/lprf-driver/lprf_registers.h>
 #include </home/pi/spidev/lprf_driver.c>
-
-	uint8_t txbuf0[] = {
-			   0x40, 0x00, 0x00, 0x00,  //1 
-        	           0x00, 0x00, 0x00, 0x00,  //2 
-        	           0x00, 0x00, 0x00, 0x00,  //3 
-        	           0x00, 0x00, 0x00, 0x00,  //4
-        	           0x00, 0x00, 0x00, 0x00,  //5
-        	           0x00, 0x00, 0x00, 0x00,  //6
-        	           0x00, 0x00, 0x00, 0x00,  //7
-        	           0x00, 0x00, 0x00, 0x00,  //8
-        	           0x00, 0x00, 0x00, 0x00,  //9
-        	           0x00, 0x00, 0x00, 0x00,  //10 
-			   0x00, 0x00, 0x00, 0x00,  //11 
-        	           0x00, 0x00, 0x00, 0x00,  //12 
-        	           0x00, 0x00, 0x00, 0x00,  //13  
-        	           0x00, 0x00, 0x00, 0x00,  //14  
-        	           0x00, 0x00, 0x00, 0x00,  //15  
-        	           0x00, 0x00, 0x00, 0x00,  //16  
-        	           0x00, 0x00, 0x00, 0x00,  //17 
-        	           0x00, 0x00, 0x00, 0x00,  //18 
-        	           0x00, 0x00, 0x00, 0x00,  //19 
-        	           0x00, 0x00, 0x00, 0x00,  //20  
-			   0x00, 0x00, 0x00, 0x00,  //21
-        	           0x00, 0x00, 0x00, 0x00,  //22
-        	           0x00, 0x00, 0x00, 0x00,  //23
-        	           0x00, 0x00, 0x00, 0x00,  //24
-        	           0x00, 0x00, 0x00, 0x00,  //25
-        	           0x00, 0x00, 0x00, 0x00,  //26
-        	           0x00, 0x00, 0x00, 0x00,  //27
-        	           0x00, 0x00, 0x00, 0x00,  //28
-        	           0x00, 0x00, 0x00, 0x00,  //29
-   	    	           0x00, 0x00, 0x00, 0x00,  //30
-			   0x00, 0x00, 0x00, 0x00,  //31
-        	           0x00, 0x00, 0x00, 0x00,  //32
-        	           0x00, 0x00, 0x00, 0x00,  //33
-        	           0x00, 0x00, 0x00, 0x00,  //34
-        	           0x00, 0x00, 0x00, 0x00,  //35
-        	           0x00, 0x00, 0x00, 0x00,  //36
-        	           0x00, 0x00, 0x00, 0x00,  //37
-        	           0x00, 0x00, 0x00, 0x00,  //38
-        	           0x00, 0x00, 0x00, 0x00,  //39
-        	           0x00, 0x00, 0x00, 0x00,  //40 
-};
-	uint8_t txbuf1[] = {
-			   0xFF, 0xFF, 0xFF, 0xFF,  //1 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //2 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //3 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //4
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //5
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //6
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //7
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //8
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //9
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //10 
-			   0xFF, 0xFF, 0xFF, 0xFF,  //11 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //12 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //13  
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //14  
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //15  
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //16  
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //17 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //18 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //19 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //20  
-			   0xFF, 0xFF, 0xFF, 0xFF,  //21
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //22
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //23
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //24
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //25
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //26
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //27
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //28
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //29
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //30
-			   0xFF, 0xFF, 0xFF, 0xFF,  //31
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //32
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //33
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //34
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //35
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //36
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //37
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //38
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //39
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //40 
-};
-
-
-	uint8_t txbuf10[] = {
-			   0xFF, 0xFF, 0x20, 0x01,  //1 
-        	           0x00, 0x00, 0x00, 0x00,  //2 
-        	           0x00, 0x00, 0x00, 0x00,  //3 
-        	           0x00, 0x00, 0x00, 0x00,  //4
-        	           0x00, 0x00, 0x00, 0x00,  //5
-        	           0x00, 0x00, 0x00, 0x00,  //6
-        	           0x00, 0x00, 0x00, 0x00,  //7
-        	           0x00, 0x00, 0x00, 0x00,  //8
-        	           0x00, 0x00, 0x00, 0x00,  //9
-        	           0x00, 0x00, 0x00, 0x00,  //10 
-			   0xFF, 0xFF, 0xFF, 0xFF,  //11 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //12 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //13  
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //14  
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //15  
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //16  
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //17 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //18 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //19 
-        	           0xFF, 0xFF, 0xFF, 0xFF,  //20  
-			   0x00, 0x00, 0x00, 0x00,  //21
-        	           0x00, 0x00, 0x00, 0x00,  //22
-        	           0x00, 0x00, 0x00, 0x00,  //23
-        	           0x00, 0x00, 0x00, 0x00,  //24
-        	           0x00, 0x00, 0x00, 0x00,  //25
-        	           0x00, 0x00, 0x00, 0x00,  //26
-        	           0x00, 0x00, 0x00, 0x00,  //27
-        	           0x00, 0x00, 0x00, 0x00,  //28
-        	           0x00, 0x00, 0x00, 0x00,  //29
-   	    	           0x00, 0x00, 0x00, 0x00,  //30
-			   0x00, 0x00, 0x00, 0x00,  //31
-        	           0x00, 0x00, 0x00, 0x00,  //32
-        	           0x00, 0x00, 0x00, 0x00,  //33
-        	           0x00, 0x00, 0x00, 0x00,  //34
-        	           0x00, 0x00, 0x00, 0x00,  //35
-        	           0x00, 0x00, 0x00, 0x00,  //36
-        	           0x00, 0x00, 0x00, 0x00,  //37
-        	           0x00, 0x00, 0x00, 0x00,  //38
-        	           0x00, 0x00, 0x00, 0x00,  //39
-        	           0x00, 0x00, 0x00, 0x00,  //40 
-};
-
-uint8_t txbuf_tda_mod[] = {
-			0xAA, 0xAA, 0xAA, 0xAA, //4
-			0xAA, 0xAA, 0xAA, 0xAA, //8
-			0xAA, 0xAA, 0xAA, 0xAA, //12
-			0xAA, 0xAA, 0xAA, 0xAA, //16
-			0xAA, 0xAA, 0xAA, 0xAA, //20
-			0xAA, 0xAA, 0xAA, 0xAA, //24
-			0xAA, 0xAA, 0xA9, 0x99, //28
-			0xAA, 0xAA, 0xA9, 0xA9, //32
-			0xA6, 0xA6, 0xA5, 0xA5, //36
-			0x9A, 0x9A, 0x99, 0x99, //40
-			0x96, 0x96, 0x95, 0x95, //44
-			0x6A, 0x6A, 0x69, 0x69, //48
-			0x66, 0x66, 0xAA, 0xAA, //52
-			0xA9, 0xA9, 0xA6, 0xA6, //56
-			0xA5, 0xA5, 0x9A, 0x9A, //60
-			0x99, 0x99, 0x96, 0x96, //64
-			0x95, 0x95, 0x6A, 0x6A, //68
-			0x69, 0x69, 0x66, 0x66  //72bytes = 576bits
-};
-
-uint8_t txbuf_tda_unmod[] = {
-			0x00, 0x00, 0x00, 0x00, //4
-			0x00, 0x00, 0x00, 0x00, //8
-			0x00, 0x00, 0x00, 0x00, //12
-			0x00, 0x15, 0x00, 0xDE, //16
-			0xAD, 0xBE, 0xAF, 0xBA, //20
-			0xDE, 0xAF, 0xFE, 0x00, //24
-			0x00, 0x00, 0xDE, 0xAD, //28
-			0xBE, 0xEF, 0xBA, 0xDE, //32
-			0xAF, 0xFE, 0x00, 0x00  //36bytes = 288bits
-};
-
-
-upsample(uint8_t * data_in, uint8_t * data_out, uint8_t len)
-{
-	int i, j, data_ups_pointer;
-	data_ups_pointer = 0;
-	uint16_t tempout;
-	for(i=0; i<len;i++) {
-		tempout = 0;
-		for(j=0; j<8;j++) {
-			if(data_in[i] & (1<<j)) {
-				tempout += (3<<(j*2));
-			}
-		}
-		//write out tempout to data_out and correct endianness 
-		data_out[data_ups_pointer] = ((tempout & 0xFF00) >> 8); 
-		data_out[data_ups_pointer+1] = (tempout & 0x00FF);
-		data_ups_pointer += 2;
-	}
-}
-
-manchester_encode(uint8_t * data_in, uint8_t * data_out, uint8_t len)
-{
-	int i;
-	for(i=0; i<len; i++) 
-		data_out[i] = data_in[i] ^ (0xAA);
-}
 
 
 static void print_usage(const char *prog)
 {
 	printf("Usage: %s [-DsbdlHOLC3]\n", prog);
-	puts("  -D --device   device to use (default /dev/spidev1.1)\n"
+	puts("  -D --device   device to use (default /dev/spidev0.0)\n"
 	     "  -s --speed    max speed (Hz)\n"
 	     "  -d --delay    delay (usec)\n"
 	     "  -b --bpw      bits per word \n"
@@ -338,7 +149,7 @@ int main(int argc, char *argv[])
 	lprf_hw.fd = fd;
 
 ///////////////////////////
-//    TX24 Testcase      //
+//    RX24 Testcase      //
 ///////////////////////////
 
 
@@ -372,11 +183,13 @@ int main(int argc, char *argv[])
 	write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_PAD, 1);
 	write_subreg(&lprf_hw, SR_CTRL_CLK_PLL_OSC, 0);
 	write_subreg(&lprf_hw, SR_CTRL_CLK_PLL_PAD, 1);
-	write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 1);
-	write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 0);
+	write_subreg(&lprf_hw, SR_CTRL_CLK_C3X_OSC, 0);
+	write_subreg(&lprf_hw, SR_CTRL_CLK_C3X_PAD, 1);
+	write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 0);
+	write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 1);
 	write_subreg(&lprf_hw, SR_CTRL_CLK_FALLB, 0);
-	write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0);	
-	write_subreg(&lprf_hw, SR_CTRL_CLK_IREF, 6);   //enable current for clock delay (CDE)
+	write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1);	
+	write_subreg(&lprf_hw, SR_CTRL_CLK_IREF, 7);   //enable current for clock delay (CDE)
 
 	printf("enable and configure LDOs\n");
 	write_subreg(&lprf_hw, SR_LDO_A, 1);           //Enable all LDOs
@@ -393,84 +206,141 @@ int main(int argc, char *argv[])
 	write_subreg(&lprf_hw, SR_PLL_EN, 1);
 
 	uint8_t sm = 1;
-	if(sm == 0) {    	//set channel (no State machine)
-		write_subreg(&lprf_hw, SR_PLL_CHN_INT, 112);
-		write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_H, 0);
-		write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_M, 0);
-		write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_L, 0);
-		write_subreg(&lprf_hw, SR_PLL_VCO_TUNE, 152); //set VCO tune word for 1696MHz an PLL_OUT   
-		write_subreg(&lprf_hw, SR_IREF_PLL_CTRLB, 0);
-		write_subreg(&lprf_hw, SR_PLL_EN, 1);
-	} else {
-		//reset PLL
-		write_subreg(&lprf_hw, SR_PLL_RESETB, 0);
-		write_subreg(&lprf_hw, SR_PLL_RESETB, 1);
-		write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1); //disable CLKOUT
+    uint8_t payload_len = 36;
+    uint8_t *payload;
+    payload = (uint8_t*)malloc(36+1);
+    uint8_t i = 0;
+    for(i=0;i<payload_len;i++) {
+        payload[i] = 0;
+    }
 
-	
+    //reset PLL
+    write_subreg(&lprf_hw, SR_PLL_RESETB, 0);
+    write_subreg(&lprf_hw, SR_PLL_RESETB, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1); //disable CLKOUT
+
+
 //===============change to state machine operation=========================
-		printf("configure center freq\n");
-		write_subreg(&lprf_hw, SR_WAKEUPONSPI, 0);          //disable wakeup modes	
-		write_subreg(&lprf_hw, SR_TX_CHAN_INT, 112);        //Set PLL divider, write PLL_CHN through statemachine,    //1792MHz an PLL_OUT
-		write_subreg(&lprf_hw, SR_TX_CHAN_FRAC_H, 0);       //for 2.4GHz output: sliding IF: 
-		write_subreg(&lprf_hw, SR_TX_CHAN_FRAC_M, 0);       //f_RF = 0.75 * f_vco = 0.75 * 32MHz * PLL_CHN
-		write_subreg(&lprf_hw, SR_TX_CHAN_FRAC_L, 0);
-		write_subreg(&lprf_hw, SR_PLL_VCO_TUNE, 152);       //set VCO tune word for 1792MHz an PLL_OUT
+    printf("configure center freq\n");
+    write_subreg(&lprf_hw, SR_RX_CHAN_INT, 102);    //Set PLL divider, write PLL_CHN through statemachine,    //1632MHz an PLL_OUT
+    write_subreg(&lprf_hw, SR_RX_CHAN_FRAC_H, 0);       //for 2.448GHz output: sliding IF: 
+    write_subreg(&lprf_hw, SR_RX_CHAN_FRAC_M, 0);       //f_RF = 0.75 * f_vco = 0.75 * 32MHz * PLL_CHN
+    write_subreg(&lprf_hw, SR_RX_CHAN_FRAC_L, 0);
+    write_subreg(&lprf_hw, SR_PLL_VCO_TUNE, 212);       //set VCO tune word for 1632MHz at PLL_OUT
 
-		printf("configure modulation\n");
-		write_subreg(&lprf_hw, SR_TX_ON_CHIP_MOD, 1);       //enable on-chip modulation
-		write_subreg(&lprf_hw, SR_PLL_MOD_EN, 1);           //enable modulation of PLL
-		write_subreg(&lprf_hw, SR_PLL_MOD_DATA_RATE, 1);    //set tx data rate to <500kBit/s
-		write_subreg(&lprf_hw, SR_TX_ON_CHIP_MOD_SP, 9);    //set TX data rate (3: 250kHz; 8: 20kHz; 9: 10kHz)
-		write_subreg(&lprf_hw, SR_PLL_MOD_FREQ_DEV, 4);     //set frequency deviation (4: 128kHz; 8: 256kHz at PLL_OUT)
-		write_subreg(&lprf_hw, SR_INVERT_FIFO_CLK, 0);      //invert FIFO clock to enable R/W operation to the fifo
-		write_subreg(&lprf_hw, SR_TX_SPI_FIFO_OUT_EN, 1);   //enable FIFO -> txpath
-		write_subreg(&lprf_hw, SR_PLL_TPM_COMP_EN, 0); //disable two point modulation compensation loop
+    printf("configure demodulation\n");
+    write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 0);            // set to 96MHz clock
+    write_subreg(&lprf_hw, SR_DEM_AGC_EN, 0);               // enable automatic gain control
+    write_subreg(&lprf_hw, SR_DEM_FREQ_OFFSET_CAL_EN,0);    // disable frequency offset calculation
+    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 1);              // disable oversampling
+    write_subreg(&lprf_hw, SR_DEM_BTLE_MODE, 1);            // disable Bluetooth Low Energy mode
+    write_subreg(&lprf_hw, SR_DEM_IQ_INV, 0);               // 0 at IQ inversion
+    write_subreg(&lprf_hw, SR_DEM_IQ_CROSS, 0);             // 0 at IQ crossing
+    write_subreg(&lprf_hw, SR_DEM_IF_SEL, 2);               // set to 1MHz IF
+    write_subreg(&lprf_hw, SR_DEM_DATA_RATE_SEL, 2);        // set data rate; 3=2MBps, 2=1MBps, 1=200kbps, 0=100kbps
+    write_subreg(&lprf_hw, SR_DEM_GC3, 2);                  // set gain of 1Mbps CIC filter stage
 
-		printf("enable state machine\n");
-		write_subreg(&lprf_hw, SR_SM_EN, 1);          //enable state machine
-		write_subreg(&lprf_hw, SR_TX_MODE, 0);        //set TX mode to 2.4GHz
 
-		printf("set waiting times to max\n");
-		write_subreg(&lprf_hw, SR_POWER_TX_TIME, 256);
-		write_subreg(&lprf_hw, SR_PLL_PON_TIME, 256);
-		write_subreg(&lprf_hw, SR_TX_TIME, 256);
+    printf("configure ADC\n");
+    //for ADC single bit operation
+    write_subreg(&lprf_hw, SR_CTRL_ADC_IDAC, 0);       //ioSetReg('ADC_IDAC', '00');
+    write_subreg(&lprf_hw, SR_CTRL_ADC_IADC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_ADC_DWA, 0);        //ioSetReg('ADC_TUNE1', '35');   //0x35 = 0b00110101
+    write_subreg(&lprf_hw, SR_CTRL_ADC_DR_SEL, 1);
+    //write_subreg(&lprf_hw, SR_CTRL_ADC_BW_TUNE, 5);
+    write_subreg(&lprf_hw, SR_CTRL_ADC_BW_TUNE, 7);    //Tune BW to center 1M
+    //write_subreg(&lprf_hw, SR_CTRL_ADC_BW_SEL, 1);
+        write_subreg(&lprf_hw, SR_CTRL_ADC_BW_SEL, 2);     //BW to 1M
 
-		printf("write frame            ");
-		uint8_t payload_len = 36;
-		uint8_t *payload_ups = (uint8_t*) malloc(sizeof(uint8_t) * payload_len * 2);
-		uint8_t *payload_mod = (uint8_t*) malloc(sizeof(uint8_t) * payload_len * 2);
-		upsample(txbuf_tda_unmod, payload_ups, payload_len);
-		manchester_encode(payload_ups, payload_mod, payload_len*2);
-		write_frame(&lprf_hw, payload_mod, payload_len*2);   
-		printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+    write_subreg(&lprf_hw, SR_ADC_D_EN, 0);            //ioSetReg('ADC_TUNE2', '01');
+    write_subreg(&lprf_hw, SR_CTRL_DSM_MB2SB, 0);      //multibit to single bit
+    write_subreg(&lprf_hw, SR_CTRL_DSM_DOE, 0);        //dynamic output enable of dac cells
+    write_subreg(&lprf_hw, SR_CTRL_DSM_SDWA, 0);       //single sided data weighed averaging
+    write_subreg(&lprf_hw, SR_CTRL_ADC_IOP, 1);        //tunes single bit dac current
 
-		printf("enable FIFO mode       ");
-		write_subreg(&lprf_hw, SR_FIFO_MODE_EN, 1);   //enable FIFO mode
-		printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+    write_subreg(&lprf_hw, SR_CTRL_ADC_D_BYPASS, 0);   //ioSetReg('ADC_MAIN', '11');
+    write_subreg(&lprf_hw, SR_ADC_CTRL_RESETB, 1);     //no reset
+    write_subreg(&lprf_hw, SR_CTRL_ADC_MULTIBIT, 0);   //no multibit
 
-		printf("change state to TX     ");
-		write_subreg(&lprf_hw, SR_SM_COMMAND, CMD_TX);   //change state to TX
-		write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0); //enable CLKOUT at TX_START
-		printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+    printf("configure RX frontend\n");
+    write_subreg(&lprf_hw, SR_RX_FE_EN, 1);            //enable RX frontend
+    write_subreg(&lprf_hw, SR_RX_RF_MODE, 0);          //set band to 2.4GHz
+    write_subreg(&lprf_hw, SR_RX_LO_EXT, 0);           //set to internal LO
+    write_subreg(&lprf_hw, SR_RX24_PON, 1);            //power on RX24 frontend
+    write_subreg(&lprf_hw, SR_RX800_PON, 0);           //power off RX800 frontend
+    write_subreg(&lprf_hw, SR_RX433_PON, 0);           //power on RX433 frontend
+    write_subreg(&lprf_hw, SR_PPF_M1, 1);              //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_PPF_M0, 0);              //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_PPF_TRIM, 5);            //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_PPF_HGAIN, 1);           //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_PPF_LLIF, 0);            //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_LNA24_ISETT, 7);         //ioSetReg('LNA24_ISETT','07');  max current for (wakeup?) 2.4GHz LNA
+    write_subreg(&lprf_hw, SR_LNA24_CTRIM, 255);       //ioSetReg('52','FF'); for best S11
+    write_subreg(&lprf_hw, SR_WAKEUPONSPI, 0);         //disable wakeup modes	
+    write_subreg(&lprf_hw, SR_WAKEUPONRX, 0);          //disable wakeup modes	
+    write_subreg(&lprf_hw, SR_INVERT_FIFO_CLK, 0);     //invert FIFO clock to enable R/W operation to the fifo
 
-		int i;
-		uint8_t val;
-		for(i = 0; i < 100000; i++){
-			val = read_reg(&lprf_hw, RG_SM_STATE);	
-			if(!(val & 4)){	
-				write_subreg(&lprf_hw, SR_SM_COMMAND, CMD_NONE);  //reset CMD bitfield
-				write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1);       //disable CLKOUT at TX_STOP
-				printf("receiving...           ");
-				printf("SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X   i=%d\n", val, read_reg(&lprf_hw, RG_SM_FIFO), i);	
-				break;
-			}
-		}
+    printf("enable and configure state machine\n");
+    write_subreg(&lprf_hw, SR_SM_EN, 1);               //enable state machine
+    write_subreg(&lprf_hw, SR_FIFO_MODE_EN, 1);        //enable FIFO mode
+    write_subreg(&lprf_hw, SR_DIRECT_TX, 0);           //disable transition to TX
+    write_subreg(&lprf_hw, SR_DIRECT_TX_IDLE, 0);      //do not transition to TX based on packet counter or fifo full
+    write_subreg(&lprf_hw, SR_RX_HOLD_MODE_EN, 0);     //do not transition to RX_HOLD based on packet counter or fifo full
+    write_subreg(&lprf_hw, SR_RX_TIMEOUT_EN, 0);       //disable RX_TIMEOUT counter
+    write_subreg(&lprf_hw, SR_RX_HOLD_ON_TIMEOUT, 0);  //disable transition RX -> RX_HOLD based on timeout counter
+    write_subreg(&lprf_hw, SR_AGC_AUTO_GAIN, 0);       //disable LNA gain switching based on RSSI
 
-		printf("                       SM_STATE=0x%0.2X     SM_FIFO =0x%0.2X   i=%d\n", val, read_reg(&lprf_hw, RG_SM_FIFO), i); 
-	}
-	close(fd);
+    printf("set waiting times to max\n");
+    write_subreg(&lprf_hw, SR_SM_TIME_POWER_RX, 256);
+    write_subreg(&lprf_hw, SR_SM_TIME_PLL_PON, 256);
+    write_subreg(&lprf_hw, SR_SM_TIME_PD_EN, 256);
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
 
-	return ret;
+    printf("change state to RX     \n");
+    write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_RX);   //change state to TX
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+
+    for(i = 0; i < 10; i++){
+        printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X   i=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), i);	
+    }
+
+    printf("read frame            \n");
+    payload_len = read_frame(&lprf_hw, payload);   
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+    write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_NONE);  //reset CMD bitfield
+
+    close(fd);
+    
+    //output frame
+    if(payload_len > 0) {
+        int row_i, row_max, col_i, col_max, index;
+        row_max = 16;    
+        col_max = payload_len/16 + 1;
+        printf("payload: (len=%d)\n", payload_len);
+        for(col_i=0; col_i<col_max; col_i++) {
+            printf("%0.4X  ", col_i*row_max);
+            for(row_i=0; row_i<row_max; row_i++) {
+                index = row_i + row_max*col_i;
+                if(index < payload_len)
+                    printf("%0.2X", payload[index]);
+                if(index % 2)
+                    printf(" ");
+            }
+            printf("\t");
+            for(row_i=0; row_i<row_max; row_i++) {
+                index = row_i + row_max*col_i;
+                if((payload[index] > 31) && (payload[index] < 128))
+                    printf("%c", payload[index]);
+                else
+                    printf(".");
+            }
+            printf("\n");
+        }
+        printf("\n");
+    } else {
+        printf("no payload data received!\n");
+    }
+    
+
+    return ret;
 }
-

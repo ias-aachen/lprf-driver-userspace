@@ -14,7 +14,7 @@
 ///home/pi/linux/include/uapi/linux/spi/spidev.h
 #include <byteswap.h>
 
-#include </home/pi/spidev/lprf_registers.h>
+#include </home/pi/lprf/lprf-driver/lprf_registers.h>
 
 #include </home/pi/spidev/lprf_driver.c>
 
