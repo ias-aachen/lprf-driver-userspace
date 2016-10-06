@@ -11,7 +11,8 @@
 #include <linux/spi/spidev.h>
 #include <byteswap.h>
 #include </home/pi/lprf/lprf-driver/lprf_registers.h>
-#include "lprf_driver.c"
+#include "lprf_driver.h"
+#include "spi_hw_abstraction.h"
 
 static int clk96 = 0;
 static int agc = 0;

@@ -1,14 +1,20 @@
-/*
- * Abstraction layer for SPI hardware
- * this mostly defines the struct spi_hw
- * 
- * transfer_byte is only used to send&receive single bytes
- *
- *
- *
- */
- 
- 
+#ifndef SPI_HW_ABSTRACTION
+#define SPI_HW_ABSTRACTION
+
+#include <stdint.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <getopt.h>
+#include <fcntl.h>
+#include <string.h>   //for memcpy
+#include <sys/ioctl.h>
+#include <stdbool.h>  //for false&true
+#include <linux/types.h>
+#include <linux/spi/spidev.h>
+#include </home/pi/lprf/lprf-driver/lprf_registers.h>
+#include <byteswap.h>
+
 struct spi_hw {
 	int fd;      //file descriptor
 	int MAX_FRAME_LEN;
@@ -20,77 +26,13 @@ struct spi_hw {
 };
 
 
-int register_hw(struct spi_hw *hw)
-{
+int register_hw(struct spi_hw *hw);
+uint8_t read_reg(struct spi_hw *hw, unsigned int addr);
+void write_reg(struct spi_hw *hw, unsigned int addr, unsigned int data);
+uint8_t read_subreg(struct spi_hw *hw, unsigned int addr, unsigned int mask, unsigned int shift);
+void write_subreg(struct spi_hw *hw, unsigned int addr, unsigned int mask, unsigned int shift, unsigned int value);
+uint8_t read_frame(struct spi_hw *hw, uint8_t *rxbuf);
+void write_frame(struct spi_hw *hw, uint8_t *txbuf, uint8_t len);
+void print_register_content(struct spi_hw *hw, unsigned int addr_start, unsigned int len);
 
-}
-
-/*
- * read_reg performs a read operation 
- */
-
-static uint8_t read_reg(struct spi_hw *hw, unsigned int addr)
-{
-	uint8_t data = hw->read_databyte(hw->fd, addr);
-	return data;
-}
-
-/*
- * write_reg performs a write operation
- */
-
-static void write_reg(struct spi_hw *hw, unsigned int addr, unsigned int data)
-{
-	hw->write_databyte(hw->fd, addr, data);
-}
-
-
-/*
- * read_subreg performs a read operation and returns the specified 
- * bitfield only, after performing shift and mask correction
- */
-static uint8_t read_subreg(struct spi_hw *hw, unsigned int addr, unsigned int mask, unsigned int shift)
-{
-	uint8_t data = hw->read_databyte(hw->fd, addr);
-	return (data & mask) >> shift;
-}
-
-
-/*
- * write_subreg performs a read-modify-write operation
- * to manipulate individual bitfields within registers
- */
-static void write_subreg(struct spi_hw *hw, unsigned int addr, unsigned int mask, unsigned int shift, unsigned int value)
-{
-	uint8_t data = hw->read_databyte(hw->fd, addr);	
-	data &= ~mask;               //clear bits
-	data |= value << shift;	     //set bits
-	hw->write_databyte(hw->fd, addr, data);	
-	//check contents
-	uint8_t datacheck = hw->read_databyte(hw->fd, addr);
-	if(data != datacheck)
-		printf("ERROR: write confirming failed\n");
-}
-
-static uint8_t read_frame(struct spi_hw *hw, uint8_t *rxbuf)
-{
-	uint8_t len = hw->frame_read(hw->fd, rxbuf);
-	return len;
-}
-
-
-static void write_frame(struct spi_hw *hw, uint8_t *txbuf, uint8_t len)
-{
-	hw->frame_write(hw->fd, txbuf, len);
-}
-
-
-void print_register_content(struct spi_hw *hw, unsigned int addr_start, unsigned int len)
-{
-	int i;
-	for (i=0; i<len; i++) {
-		printf("%.2X ", hw->read_databyte(hw->fd, addr_start+i));
-	}
-	printf("\n");
-}
-
+#endif // SPI_HW_ABSTRACTION

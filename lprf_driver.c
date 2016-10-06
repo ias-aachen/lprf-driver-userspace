@@ -6,22 +6,9 @@
  *
  */
 
-#include <stdint.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <getopt.h>
-#include <fcntl.h>
-#include <string.h>   //for memcpy
-#include <sys/ioctl.h>
-#include <stdbool.h>  //for false&true
-#include <linux/types.h>
-#include <linux/spi/spidev.h>
-#include </home/pi/lprf/lprf-driver/lprf_registers.h>
-#include <byteswap.h>
-#include "spi_hw_abstraction.h"
+#include "lprf_driver.h"
 
-
+/*
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 #define CMD_REGR      0x80  //register read
@@ -32,23 +19,24 @@
 #define addr_len      1
 #define data_len      1
 #define LPRF_MAX_FRAME_LEN 255
+*/
 
 //sizeof(uint8_t)     =1
 //sizeof(uint16_t)    =2
 //sizeof(int)         =4
 //sizeof(unsigned int)=4
 
-static void pabort(const char *s)
+void pabort(const char *s)
 {
 	perror(s);
 	abort();
 }
 
-static const char *device = "/dev/spidev0.0";
-static uint8_t mode;
-static uint8_t bits = 8;
-static uint32_t speed = 500000;
-static uint16_t delay;
+const char *device = "/dev/spidev0.0";
+uint8_t mode;
+uint8_t bits = 8;
+uint32_t speed = 500000;
+uint16_t delay;
 
 static bool lprf_writeable(unsigned int addr)
 {
@@ -95,7 +83,7 @@ uint8_t reverse_bit_order(uint8_t source)
 }
 
 // lprf_write_reg writes config data into registers
-static void lprf_write_reg(int fd, unsigned int addr, unsigned int data)
+void lprf_write_reg(int fd, unsigned int addr, unsigned int data)
 {
 	if (!(lprf_writeable(addr))) {
 		printf("register 0x%0.2X not writeable!\n", addr);
@@ -130,7 +118,7 @@ static void lprf_write_reg(int fd, unsigned int addr, unsigned int data)
 }
 
 // lprf_read_reg reads config data from registers
-static uint8_t lprf_read_reg(int fd, unsigned int addr)
+uint8_t lprf_read_reg(int fd, unsigned int addr)
 {
 	int ret;
 	//uint8_t *tx = (uint8_t*)malloc(cmd_len + addr_len + data_len - 1);    
