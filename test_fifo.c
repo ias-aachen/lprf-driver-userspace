@@ -34,15 +34,14 @@ int main(int argc, char *argv[])
         return -1;
     chip_configuration();
 
-    
-    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-
     uint8_t test_data[] = { 1, 2, 3, 4, 5, 6, 7, 8};
     uint8_t read_buffer[256];
     int length = 0;
     int i = 0;
     
+    write_subreg(&lprf_hw, SR_SM_EN, 0);               //disable state machine
     write_subreg(&lprf_hw, SR_FIFO_RESETB, 1); // Reset Fifo
+    
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
     
     printf("Write %d bytes to FiFo\n", sizeof(test_data));
