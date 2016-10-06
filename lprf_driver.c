@@ -17,9 +17,9 @@
 #include <stdbool.h>  //for false&true
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
-#include </home/pi/spidev/lprf_registers.h>
+#include </home/pi/lprf/lprf-driver/lprf_registers.h>
 #include <byteswap.h>
-#include </home/pi/spidev/spi_hw_abstraction.h>
+#include "spi_hw_abstraction.h"
 
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
@@ -31,7 +31,7 @@
 #define cmd_len       1
 #define addr_len      1
 #define data_len      1
-#define MAX_FRAME_LEN 128
+#define LPRF_MAX_FRAME_LEN 255
 
 //sizeof(uint8_t)     =1
 //sizeof(uint16_t)    =2
@@ -44,7 +44,7 @@ static void pabort(const char *s)
 	abort();
 }
 
-static const char *device = "/dev/spidev1.1";
+static const char *device = "/dev/spidev0.0";
 static uint8_t mode;
 static uint8_t bits = 8;
 static uint32_t speed = 500000;
@@ -162,7 +162,7 @@ static uint8_t lprf_read_reg(int fd, unsigned int addr)
 /*
  * read frame buffer content
  *  - fd is device file descriptor
- *  - rxbuf is pointer to memory for received data (allocate MAX_FRAME_LEN bytes)    
+ *  - rxbuf is pointer to memory for received data (allocate LPRF_MAX_FRAME_LEN bytes)    
  * return value is number of data bytes 
  * 
  * Length of received frame is stated as second received byte
@@ -172,19 +172,19 @@ static uint8_t lprf_read_reg(int fd, unsigned int addr)
 uint8_t lprf_read_frame(int fd, uint8_t *rxbuf)
 {
 	int ret;
-	uint8_t *tx = (uint8_t*)malloc((cmd_len + addr_len + MAX_FRAME_LEN) * sizeof(uint8_t));
-	uint8_t rx[(cmd_len + addr_len + MAX_FRAME_LEN) * sizeof(uint8_t)] = {0, };
+	uint8_t *tx = (uint8_t*)malloc((cmd_len + addr_len + LPRF_MAX_FRAME_LEN) * sizeof(uint8_t));
 	
 	tx[0] = CMD_FRMR;
 	int i;
-	for(i=1; i<MAX_FRAME_LEN; i++) {
+	for(i=1; i<LPRF_MAX_FRAME_LEN; i++) {
 		tx[i] = 0x00;
 	}
 
 	struct spi_ioc_transfer tr = {
 		.tx_buf = (unsigned long)tx,
-		.rx_buf = (unsigned long)rx,
-		.len = cmd_len + addr_len + MAX_FRAME_LEN,
+		//.rx_buf = (unsigned long)rx,
+		.rx_buf = (unsigned long)rxbuf,
+		.len = cmd_len + addr_len + LPRF_MAX_FRAME_LEN,
 		.delay_usecs = delay,
 		.speed_hz = speed,
 		.bits_per_word = bits,
@@ -193,10 +193,7 @@ uint8_t lprf_read_frame(int fd, uint8_t *rxbuf)
 	ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
 	if (ret < 1)
 		pabort("can't send spi message");
-	
-	rxbuf = rx;
-
-	return rx[1];	
+	return rxbuf[1];	
 }
 
 /*
@@ -239,6 +236,7 @@ void lprf_write_frame(int fd, uint8_t *txbuf, uint8_t len)
 
 struct spi_hw lprf_hw = {
 	.fd = 0,
+	.MAX_FRAME_LEN = LPRF_MAX_FRAME_LEN,
 	.transfer_byte = NULL,
 	.write_databyte = lprf_write_reg,
 	.read_databyte = lprf_read_reg,

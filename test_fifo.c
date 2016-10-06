@@ -11,7 +11,7 @@
 #include <linux/spi/spidev.h>
 #include <byteswap.h>
 #include </home/pi/lprf/lprf-driver/lprf_registers.h>
-#include </home/pi/spidev/lprf_driver.c>
+#include "lprf_driver.c"
 
 static int clk96 = 0;
 static int agc = 0;
@@ -20,30 +20,18 @@ static int btle = 0;
 static int rate = 3;
 static int myopt = 1;
 
+int connect_spi();
 int configureSpiInterface(int fd);
 void print_frame(uint8_t *payload, uint16_t payload_len) ;
 int testSpiConnection();
-void chip_configuration(int fd);
+void chip_configuration();
 
 int main(int argc, char *argv[])
 {
-    int fd;
     int ret = 0;
-    
-
-    fd = open(device, O_RDWR);
-    if (fd < 0)
-        pabort("can't open device");
-
-    ret = configureSpiInterface(fd);
-
-    lprf_hw.fd = fd;
-    
-    printf("clk96=%d,  agc=%d, osr=%d, btle=%d, rate=%d, myopt=%d\n", clk96, agc, osr, btle, rate, myopt);
-
-
-
-    if (testSpiConnection() == -1) return -1;
+    if (connect_spi(&lprf_hw) == -1)
+        return -1;
+    chip_configuration();
 
     
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
@@ -53,38 +41,48 @@ int main(int argc, char *argv[])
     int length = 0;
     int i = 0;
     
+    write_subreg(&lprf_hw, SR_FIFO_RESETB, 1); // Reset Fifo
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-    
-    //write_reg(&lprf_hw, 0x80, 0x05); // disable state machine and reset FiFo
-    printf("enable and configure state machine\n");
-    write_subreg(&lprf_hw, SR_SM_EN, 1);               //enable state machine
-    write_subreg(&lprf_hw, SR_FIFO_MODE_EN, 1);        //enable FIFO mode
-    write_subreg(&lprf_hw, SR_DIRECT_TX, 0);           //disable transition to TX
-    write_subreg(&lprf_hw, SR_DIRECT_TX_IDLE, 0);      //do not transition to TX based on packet counter or fifo full
-    write_subreg(&lprf_hw, SR_RX_HOLD_MODE_EN, 0);     //do not transition to RX_HOLD based on packet counter or fifo full
-    write_subreg(&lprf_hw, SR_FIFO_RESETB, 1); 
     
     printf("Write %d bytes to FiFo\n", sizeof(test_data));
     write_frame(&lprf_hw, test_data, sizeof(test_data));
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
     
-    while(!(read_reg(&lprf_hw, RG_SM_FIFO) & 3)) 
-    {
-        for(i = 0; i < 256; i++)
-            read_buffer[i] = 0;
+    for(i = 0; i < 256; i++) // initialize buffer with 42
+        read_buffer[i] = 42;
             
-        length = read_frame(&lprf_hw, read_buffer);
-        printf("\n%d byte read from FiFo. Buffer Content:\n", length);
+    length = read_frame(&lprf_hw, read_buffer);
+    printf("\n%d byte read from FiFo. Buffer Content:\n", length);
         
-        for(i = 0; i < 255; i++)
-            printf("%d:\t%d\n", i, read_buffer[i]);
-    }
+    for(i = 0; i < 256; i++)
+        printf("%d:\t%d\n", i, read_buffer[i]);
+    
+    
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
     
-
+    disconnect_spi(&lprf_hw);
     return ret;
 }
 
+int connect_spi(struct spi_hw *lprf_hw)
+{
+    int fd;
+    int ret = 0;
+    fd = open(device, O_RDWR);
+    if (fd < 0)
+        pabort("can't open device");
+    ret = configureSpiInterface(fd);
+    lprf_hw->fd = fd;
+    printf("clk96=%d,  agc=%d, osr=%d, btle=%d, rate=%d, myopt=%d\n", clk96, agc, osr, btle, rate, myopt);
+    if (testSpiConnection() == -1) 
+        return -1;
+    return ret;
+}
+
+int disconnect_spi(struct spi_hw *lprf_hw)
+{
+    close(lprf_hw->fd);
+}
 
 int configureSpiInterface(int fd)
 {
@@ -184,7 +182,7 @@ int testSpiConnection()
 }
 
 
-void chip_configuration(int fd)
+void chip_configuration()
 {
     //printf("configure clock domains\n");
     //enable CLKREF -> CLKOUT and CLKPLL path
@@ -294,10 +292,15 @@ void chip_configuration(int fd)
     write_subreg(&lprf_hw, SR_RX_LENGTH_M, 255);    //set RX_LENGTH to maximum
     write_subreg(&lprf_hw, SR_RX_LENGTH_L, 255);
 
+    
     //printf("set waiting times to max\n");
     write_subreg(&lprf_hw, SR_SM_TIME_POWER_RX, 256);
     write_subreg(&lprf_hw, SR_SM_TIME_PLL_PON, 256);
     write_subreg(&lprf_hw, SR_SM_TIME_PD_EN, 256);
+}
+
+void test_rx(void)
+{
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
 
     printf("change state to RX     \n");
@@ -326,7 +329,6 @@ void chip_configuration(int fd)
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));    
     write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_NONE);  //reset CMD bitfield
 
-    close(fd);
     
     //output frame
     if(payload_len > 0) 

@@ -11,6 +11,7 @@
  
 struct spi_hw {
 	int fd;      //file descriptor
+	int MAX_FRAME_LEN;
 	uint8_t (*transfer_byte)(int fd, unsigned int data);
 	void    (*write_databyte)(int fd, unsigned int addr, unsigned int data);
 	uint8_t (*read_databyte)(int fd, unsigned int addr);
@@ -73,8 +74,6 @@ static void write_subreg(struct spi_hw *hw, unsigned int addr, unsigned int mask
 
 static uint8_t read_frame(struct spi_hw *hw, uint8_t *rxbuf)
 {
-	//do not allocate memory for received bytes here. rxbuf already points to allocated memory
-	//uint8_t *rxbuffer = malloc(MAX_FRAME_LEN * sizeof(uint8_t));     
 	uint8_t len = hw->frame_read(hw->fd, rxbuf);
 	return len;
 }
