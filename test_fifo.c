@@ -34,31 +34,48 @@ int main(int argc, char *argv[])
         return -1;
     chip_configuration();
 
-    uint8_t test_data[] = { 1, 2, 3, 4, 5, 6, 7, 8};
-    uint8_t read_buffer[256];
-    int length = 0;
-    int i = 0;
-    
-    write_subreg(&lprf_hw, SR_SM_EN, 0);               //disable state machine
-    write_subreg(&lprf_hw, SR_FIFO_RESETB, 1); // Reset Fifo
     
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-    
-    printf("Write %d bytes to FiFo\n", sizeof(test_data));
-    write_frame(&lprf_hw, test_data, sizeof(test_data));
+
+    printf("change state to RX     \n");
+    write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_RX);   //change state to RX
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+    int i=0;
+    uint8_t sm_state = STATE_RECEIVING;
+    while(sm_state == STATE_RECEIVING) {
+        sm_state = read_reg(&lprf_hw, RG_SM_STATE);
+        i++;
+    }
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X after %d SPI reads\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), i);
     
-    for(i = 0; i < 256; i++) // initialize buffer with 42
-        read_buffer[i] = 42;
-            
-    length = read_frame(&lprf_hw, read_buffer);
-    printf("\n%d byte read from FiFo. Buffer Content:\n", length);
-        
-    for(i = 0; i < 256; i++)
-        printf("%d:\t%d\n", i, read_buffer[i]);
+    printf("read frame            \n");
+    uint16_t payload_len = 0;
+    uint16_t payload_len_temp = 255;
+    uint8_t *payload = (uint8_t*)malloc(3500);
+    uint8_t *payload_temp = (uint8_t*)malloc(256);
+    while(!(read_reg(&lprf_hw, RG_SM_FIFO) & 3)) {
+        payload_len_temp = read_frame(&lprf_hw, payload_temp);
+        printf("read %d bytes\n", payload_len_temp);
+        memcpy(payload+payload_len, payload_temp, payload_len_temp);
+        payload_len += payload_len_temp;
+    }
+    
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));    
+    write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_NONE);  //reset CMD bitfield
+
+    
+    //output frame
+    if(payload_len > 0) 
+        print_frame(payload, payload_len);
+    else
+        printf("no payload data received!\n");
     
     
-    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+    
+    
+    
+    
+    
     
     disconnect_spi(&lprf_hw);
     return ret;
@@ -335,4 +352,20 @@ void test_rx(void)
         print_frame(payload, payload_len);
     else
         printf("no payload data received!\n");
+}
+
+
+void write_something_to_fifo()
+{
+    uint8_t test_data[] = { 1, 2, 3, 4, 5, 6, 7, 8};
+ 
+    int length = 0;
+    int i = 0;
+    
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+    
+    printf("Write %d bytes to FiFo\n", sizeof(test_data));
+    write_frame(&lprf_hw, test_data, sizeof(test_data));
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+    
 }
