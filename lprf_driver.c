@@ -160,19 +160,23 @@ uint8_t lprf_read_reg(int fd, unsigned int addr)
 uint8_t lprf_read_frame(int fd, uint8_t *rxbuf)
 {
 	int ret;
-	uint8_t *tx = (uint8_t*)malloc((cmd_len + addr_len + LPRF_MAX_FRAME_LEN) * sizeof(uint8_t));
+	const int framelength = cmd_len + addr_len + LPRF_MAX_FRAME_LEN;
+	uint8_t *tx = (uint8_t*)malloc(framelength * sizeof(uint8_t));
+	uint8_t *rx = (uint8_t*)malloc(framelength * sizeof(uint8_t));
+	
+	int i;
+	for(i=0; i<framelength; i++) {
+		tx[i] = 0x00;
+		rx[i] = 0x00;
+	}
 	
 	tx[0] = CMD_FRMR;
-	int i;
-	for(i=1; i<LPRF_MAX_FRAME_LEN; i++) {
-		tx[i] = 0x00;
-	}
+	
 
 	struct spi_ioc_transfer tr = {
 		.tx_buf = (unsigned long)tx,
-		//.rx_buf = (unsigned long)rx,
-		.rx_buf = (unsigned long)rxbuf,
-		.len = cmd_len + addr_len + LPRF_MAX_FRAME_LEN,
+		.rx_buf = (unsigned long)rx,
+		.len = framelength,
 		.delay_usecs = delay,
 		.speed_hz = speed,
 		.bits_per_word = bits,
@@ -180,8 +184,11 @@ uint8_t lprf_read_frame(int fd, uint8_t *rxbuf)
 
 	ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
 	if (ret < 1)
-		pabort("can't send spi message");
-	return rxbuf[1];	
+		pabort("can't send spi message");		
+    
+	int length = rx[1];
+	memcpy(rxbuf, rx+2, length);
+	return length;
 }
 
 /*

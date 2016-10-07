@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 
     
     //output frame
-    if(payload_len > 0) 
+    if(payload_len > 0)
         print_frame(payload, payload_len);
     else
         printf("no payload data received!\n");
