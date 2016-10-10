@@ -25,6 +25,7 @@ int connect_spi();
 int configureSpiInterface(int fd);
 void print_frame(uint8_t *payload, uint16_t payload_len) ;
 int testSpiConnection();
+void minimal_configuration();
 void chip_configuration();
 
 int main(int argc, char *argv[])
@@ -32,8 +33,17 @@ int main(int argc, char *argv[])
     int ret = 0;
     if (connect_spi(&lprf_hw) == -1)
         return -1;
+    
     chip_configuration();
-
+    
+    //write_subreg(&lprf_hw, SR_CTRL_ADC_MULTIBIT, 1);
+    write_subreg(&lprf_hw, SR_CTRL_DSM_MB2SB, 0);
+    //write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 1);
+    //write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 0);
+    //write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0);  
+    
+    //write_subreg(&lprf_hw, SR_ADC_D_EN, 1);   // Activate ADC
+    //write_subreg(&lprf_hw, SR_CTRL_ADC_ENABLE, 1);   // Activate ADC
     
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
 
@@ -201,6 +211,9 @@ int testSpiConnection()
 
 void chip_configuration()
 {
+    write_reg(&lprf_hw, RG_GLOBAL_RESETB, 0xFF); // Reset All
+    write_reg(&lprf_hw, RG_GLOBAL_initALL, 0xFF); // Load Init Values
+    
     //printf("configure clock domains\n");
     //enable CLKREF -> CLKOUT and CLKPLL path
     write_subreg(&lprf_hw, SR_CTRL_CLK_CDE_OSC, 0);
@@ -246,12 +259,12 @@ void chip_configuration()
     write_subreg(&lprf_hw, SR_PLL_VCO_TUNE, 212);       //set VCO tune word for 1632MHz at PLL_OUT
 
     //printf("configure demodulation\n");
-    write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, clk96);        // set to 96MHz clock
-    write_subreg(&lprf_hw, SR_DEM_AGC_EN, agc);             // enable automatic gain control
-    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, osr);            // disable oversampling
-    write_subreg(&lprf_hw, SR_DEM_BTLE_MODE, btle);         // disable Bluetooth Low Energy mode
-    write_subreg(&lprf_hw, SR_DEM_DATA_RATE_SEL, rate);     // set data rate; 3=2MBps, 2=1MBps, 1=200kbps, 0=100kbps
-    write_subreg(&lprf_hw, SR_DEM_GC2, myopt);              // set gain of always activated CIC filter
+    write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 0);  //clk96      // set to 96MHz clock
+    write_subreg(&lprf_hw, SR_DEM_AGC_EN, 0);       //agc      // enable automatic gain control
+    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 1);      //osr      // disable oversampling
+    write_subreg(&lprf_hw, SR_DEM_BTLE_MODE, 0);   //btle      // disable Bluetooth Low Energy mode
+    write_subreg(&lprf_hw, SR_DEM_DATA_RATE_SEL, 3);  //rate   // set data rate; 3=2MBps, 2=1MBps, 1=200kbps, 0=100kbps
+    write_subreg(&lprf_hw, SR_DEM_GC2, 1);        //myopt      // set gain of always activated CIC filter
     write_subreg(&lprf_hw, SR_DEM_IF_SEL, 2);               // set to 1MHz IF
     write_subreg(&lprf_hw, SR_DEM_FREQ_OFFSET_CAL_EN,0);    // disable frequency offset calculation    
     write_subreg(&lprf_hw, SR_DEM_IQ_INV, 0);               // 0 at IQ inversion
@@ -314,6 +327,42 @@ void chip_configuration()
     write_subreg(&lprf_hw, SR_SM_TIME_POWER_RX, 256);
     write_subreg(&lprf_hw, SR_SM_TIME_PLL_PON, 256);
     write_subreg(&lprf_hw, SR_SM_TIME_PD_EN, 256);
+}
+
+void minimal_configuration()
+{
+    write_reg(&lprf_hw, RG_GLOBAL_RESETB, 0xFF); // Reset All
+    write_reg(&lprf_hw, RG_GLOBAL_initALL, 0xFF); // Load Init Values
+    write_subreg(&lprf_hw, SR_SM_EN, 0);          // Disable State machine
+    
+    // Set external Clock
+    write_subreg(&lprf_hw, SR_CTRL_CLK_CDE_OSC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_CDE_PAD, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_OSC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_PAD, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_PLL_OSC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_PLL_PAD, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_C3X_OSC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_C3X_PAD, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_FALLB, 0);
+    
+    // activate 2.4GHz Band
+    write_subreg(&lprf_hw, SR_RX_FE_EN, 1);            //enable RX frontend
+    write_subreg(&lprf_hw, SR_RX_RF_MODE, 0);          //set band to 2.4GHz
+    write_subreg(&lprf_hw, SR_RX_LO_EXT, 1);           //set to external LO
+    write_subreg(&lprf_hw, SR_RX24_PON, 1);            //power on RX24 frontend
+    write_subreg(&lprf_hw, SR_RX800_PON, 0);           //power off RX800 frontend
+    write_subreg(&lprf_hw, SR_RX433_PON, 0);           //power on RX433 frontend
+    
+    // ADC_CLK
+    write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 0);
+    write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1);  // Activate Clock tripler
+    
+    write_subreg(&lprf_hw, SR_CTRL_ADC_MULTIBIT, 0); // Set single bit mode for ADC
+    write_subreg(&lprf_hw, SR_ADC_D_EN, 1);
+    write_subreg(&lprf_hw, SR_CTRL_ADC_ENABLE, 1);   // Activate ADC
+    
 }
 
 void test_rx(void)
