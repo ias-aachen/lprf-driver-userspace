@@ -34,16 +34,28 @@ int main(int argc, char *argv[])
     if (connect_spi(&lprf_hw) == -1)
         return -1;
     
-    chip_configuration();
+    //chip_configuration();
+    minimal_configuration();
     
     //write_subreg(&lprf_hw, SR_CTRL_ADC_MULTIBIT, 1);
-    write_subreg(&lprf_hw, SR_CTRL_DSM_MB2SB, 0);
+    //write_subreg(&lprf_hw, SR_CTRL_DSM_MB2SB, 0);
     //write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 1);
     //write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 0);
     //write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0);  
     
     //write_subreg(&lprf_hw, SR_ADC_D_EN, 1);   // Activate ADC
     //write_subreg(&lprf_hw, SR_CTRL_ADC_ENABLE, 1);   // Activate ADC
+    
+    
+    //write_subreg(&lprf_hw, SR_CTRL_ADC_BW_SEL, 0);
+    //write_subreg(&lprf_hw, SR_CTRL_ADC_BW_TUNE, 4);
+    //write_subreg(&lprf_hw, SR_CTRL_ADC_DWA, 0);
+    //write_subreg(&lprf_hw, SR_CTRL_ADC_DR_SEL, 2);
+    
+    
+    
+    return ret;
+    
     
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
 
@@ -182,6 +194,11 @@ void print_frame(uint8_t *payload, uint16_t payload_len)
         printf("\n");
     }
     printf("\n");
+    write_subreg(&lprf_hw, SR_PPF_M1, 1);              //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_PPF_M0, 0);              //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_PPF_TRIM, 5);            //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_PPF_HGAIN, 1);           //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_PPF_LLIF, 0);            //magic Polyphase filter settings
 }
 
 int testSpiConnection()
@@ -353,6 +370,12 @@ void minimal_configuration()
     write_subreg(&lprf_hw, SR_RX24_PON, 1);            //power on RX24 frontend
     write_subreg(&lprf_hw, SR_RX800_PON, 0);           //power off RX800 frontend
     write_subreg(&lprf_hw, SR_RX433_PON, 0);           //power on RX433 frontend
+    //write_subreg(&lprf_hw, SR_LNA24_CTRIM, 255);
+    write_subreg(&lprf_hw, SR_PPF_TRIM, 5);
+    
+    write_subreg(&lprf_hw, SR_PPF_HGAIN, 1);           //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_PPF_LLIF, 0);            //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_LNA24_ISETT, 7);         //ioSetReg('LNA24_ISETT','07');  max current for (wakeup?) 2.4GHz LNA
     
     // ADC_CLK
     write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 0);
@@ -360,9 +383,11 @@ void minimal_configuration()
     write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1);  // Activate Clock tripler
     
     write_subreg(&lprf_hw, SR_CTRL_ADC_MULTIBIT, 0); // Set single bit mode for ADC
-    write_subreg(&lprf_hw, SR_ADC_D_EN, 1);
+    //write_subreg(&lprf_hw, SR_ADC_D_EN, 1);
     write_subreg(&lprf_hw, SR_CTRL_ADC_ENABLE, 1);   // Activate ADC
     
+    write_subreg(&lprf_hw, SR_LDO_A, 1);           //Enable LDOs
+    write_subreg(&lprf_hw, SR_LDO_A_VOUT, 0x11);     //configure LDOs
 }
 
 void test_rx(void)
