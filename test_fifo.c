@@ -25,8 +25,11 @@ int connect_spi();
 int configureSpiInterface(int fd);
 void print_frame(uint8_t *payload, uint16_t payload_len) ;
 int testSpiConnection();
-void minimal_configuration();
+void minimal_adc_configuration();
+void minimal_demod_configuration();
 void chip_configuration();
+void receive_without_statemachine();
+void receive_with_statemachine();
 
 int main(int argc, char *argv[])
 {
@@ -35,64 +38,13 @@ int main(int argc, char *argv[])
         return -1;
     
     //chip_configuration();
-    minimal_configuration();
+    //minimal_adc_configuration();
+    minimal_demod_configuration();
     
-    //write_subreg(&lprf_hw, SR_CTRL_ADC_MULTIBIT, 1);
-    //write_subreg(&lprf_hw, SR_CTRL_DSM_MB2SB, 0);
-    //write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 1);
-    //write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 0);
-    //write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0);  
+    //write_subreg(&lprf_hw, SR_CTRL_C3X_LTUNE, 0);
     
-    //write_subreg(&lprf_hw, SR_ADC_D_EN, 1);   // Activate ADC
-    //write_subreg(&lprf_hw, SR_CTRL_ADC_ENABLE, 1);   // Activate ADC
-    
-    
-    //write_subreg(&lprf_hw, SR_CTRL_ADC_BW_SEL, 0);
-    //write_subreg(&lprf_hw, SR_CTRL_ADC_BW_TUNE, 4);
-    //write_subreg(&lprf_hw, SR_CTRL_ADC_DWA, 0);
-    //write_subreg(&lprf_hw, SR_CTRL_ADC_DR_SEL, 2);
-    
-    
-    
-    return ret;
-    
-    
-    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-
-    printf("change state to RX     \n");
-    write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_RX);   //change state to RX
-    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
-    int i=0;
-    uint8_t sm_state = STATE_RECEIVING;
-    while(sm_state == STATE_RECEIVING) {
-        sm_state = read_reg(&lprf_hw, RG_SM_STATE);
-        i++;
-    }
-    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X after %d SPI reads\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), i);
-    
-    printf("read frame            \n");
-    uint16_t payload_len = 0;
-    uint16_t payload_len_temp = 255;
-    uint8_t *payload = (uint8_t*)malloc(3500);
-    uint8_t *payload_temp = (uint8_t*)malloc(256);
-    while(!(read_reg(&lprf_hw, RG_SM_FIFO) & 3)) {
-        payload_len_temp = read_frame(&lprf_hw, payload_temp);
-        printf("read %d bytes\n", payload_len_temp);
-        memcpy(payload+payload_len, payload_temp, payload_len_temp);
-        payload_len += payload_len_temp;
-    }
-    
-    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));    
-    write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_NONE);  //reset CMD bitfield
-
-    
-    //output frame
-    if(payload_len > 0)
-        print_frame(payload, payload_len);
-    else
-        printf("no payload data received!\n");
-    
-    
+    receive_without_statemachine();
+    //receive_with_statemachine();
     
     
     
@@ -226,6 +178,159 @@ int testSpiConnection()
 }
 
 
+void receive_without_statemachine()
+{
+    int i;
+    for (i = 0; i < 10000; ++i)
+    {
+	int PD = read_subreg(&lprf_hw, SR_DEM_PD_OUT);
+	printf("%d", PD);
+	if (PD != 0)
+	{
+	    printf("\nPreamble Detected\n");
+	    break;
+	}
+    }
+    printf("\n");
+    
+    sleep(1);
+    uint8_t rx_buffer[256] = {0};
+    int length = 0;
+    length = read_frame(&lprf_hw, rx_buffer);
+    printf("%d bytes read from fifo\n", length);
+    for(i = 0; i < length; ++i)
+    {
+	printf("%d:\t%d\t%x\n", i, rx_buffer[i], rx_buffer[i]);
+    }
+}
+
+
+void receive_with_statemachine()
+{
+    
+    //printf("enable and configure state machine\n");
+    write_subreg(&lprf_hw, SR_SM_EN, 1);               //enable state machine
+    write_subreg(&lprf_hw, SR_FIFO_MODE_EN, 1);        //enable FIFO mode
+    write_subreg(&lprf_hw, SR_DIRECT_TX, 0);           //disable transition to TX
+    write_subreg(&lprf_hw, SR_DIRECT_TX_IDLE, 0);      //do not transition to TX based on packet counter or fifo full
+    write_subreg(&lprf_hw, SR_RX_HOLD_MODE_EN, 0);     //do not transition to RX_HOLD based on packet counter or fifo full
+    write_subreg(&lprf_hw, SR_RX_TIMEOUT_EN, 0);       //disable RX_TIMEOUT counter
+    write_subreg(&lprf_hw, SR_RX_HOLD_ON_TIMEOUT, 0);  //disable transition RX -> RX_HOLD based on timeout counter
+    write_subreg(&lprf_hw, SR_AGC_AUTO_GAIN, 0);       //disable LNA gain switching based on RSSI
+    write_subreg(&lprf_hw, SR_RX_LENGTH_H, 127);
+    write_subreg(&lprf_hw, SR_RX_LENGTH_M, 255);    //set RX_LENGTH to maximum
+    write_subreg(&lprf_hw, SR_RX_LENGTH_L, 255);
+    
+    
+    int i;
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+
+    printf("change state to RX     \n");
+    write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_RX);   //change state to RX
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+    //int i=0;
+    uint8_t sm_state = STATE_RECEIVING;
+    while(sm_state == STATE_RECEIVING) {
+        sm_state = read_reg(&lprf_hw, RG_SM_STATE);
+        i++;
+    }
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X after %d SPI reads\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), i);
+    
+    printf("read frame            \n");
+    uint16_t payload_len = 0;
+    uint16_t payload_len_temp = 255;
+    uint8_t *payload = (uint8_t*)malloc(3500);
+    uint8_t *payload_temp = (uint8_t*)malloc(256);
+    while(!(read_reg(&lprf_hw, RG_SM_FIFO) & 3)) {
+        payload_len_temp = read_frame(&lprf_hw, payload_temp);
+        printf("read %d bytes\n", payload_len_temp);
+        memcpy(payload+payload_len, payload_temp, payload_len_temp);
+        payload_len += payload_len_temp;
+    }
+    
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));    
+    write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_NONE);  //reset CMD bitfield
+
+    
+    //output frame
+    if(payload_len > 0)
+        print_frame(payload, payload_len);
+    else
+        printf("no payload data received!\n");
+    
+    
+}
+
+
+void minimal_demod_configuration()
+{
+    minimal_adc_configuration();
+    
+    
+    write_subreg(&lprf_hw, SR_DEM_EN, 1);
+    write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 1);
+    write_subreg(&lprf_hw, SR_DEM_PD_EN, 1);
+    write_subreg(&lprf_hw, SR_DEM_AGC_EN, 0);
+    write_subreg(&lprf_hw, SR_DEM_FREQ_OFFSET_CAL_EN, 0);
+    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 1);
+    write_subreg(&lprf_hw, SR_DEM_BTLE_MODE, 0);
+    
+    write_subreg(&lprf_hw, SR_DEM_IF_SEL, 0);
+    write_subreg(&lprf_hw, SR_DEM_DATA_RATE_SEL, 3);
+    
+    write_subreg(&lprf_hw, SR_DEM_IQ_CROSS, 1);
+    
+    //write_subreg(&lprf_hw, SR_INVERT_FIFO_CLK, 0);
+       
+}
+
+
+void minimal_adc_configuration()
+{
+    write_reg(&lprf_hw, RG_GLOBAL_RESETB, 0xFF); // Reset All
+    write_reg(&lprf_hw, RG_GLOBAL_initALL, 0xFF); // Load Init Values
+    write_subreg(&lprf_hw, SR_SM_EN, 0);          // Disable State machine
+    
+    // Set external Clock
+    write_subreg(&lprf_hw, SR_CTRL_CLK_CDE_OSC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_CDE_PAD, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_OSC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_PAD, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_PLL_OSC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_PLL_PAD, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_C3X_OSC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_C3X_PAD, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_FALLB, 0);
+    
+    // activate 2.4GHz Band
+    write_subreg(&lprf_hw, SR_RX_FE_EN, 1);            //enable RX frontend
+    write_subreg(&lprf_hw, SR_RX_RF_MODE, 0);          //set band to 2.4GHz
+    write_subreg(&lprf_hw, SR_RX_LO_EXT, 1);           //set to external LO
+    write_subreg(&lprf_hw, SR_RX24_PON, 1);            //power on RX24 frontend
+    write_subreg(&lprf_hw, SR_RX800_PON, 0);           //power off RX800 frontend
+    write_subreg(&lprf_hw, SR_RX433_PON, 0);           //power on RX433 frontend
+    //write_subreg(&lprf_hw, SR_LNA24_CTRIM, 255);
+    write_subreg(&lprf_hw, SR_PPF_TRIM, 5);
+    
+    write_subreg(&lprf_hw, SR_PPF_HGAIN, 1);           //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_PPF_LLIF, 0);            //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_LNA24_ISETT, 7);         //ioSetReg('LNA24_ISETT','07');  max current for (wakeup?) 2.4GHz LNA
+    
+    // ADC_CLK
+    write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 0);
+    write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1);  // Activate Clock tripler
+    //write_subreg(&lprf_hw, SR_CTRL_C3X_LTUNE, 3);
+    
+    
+    write_subreg(&lprf_hw, SR_CTRL_ADC_MULTIBIT, 0); // Set single bit mode for ADC
+    //write_subreg(&lprf_hw, SR_ADC_D_EN, 1);
+    write_subreg(&lprf_hw, SR_CTRL_ADC_ENABLE, 1);   // Activate ADC
+    
+    write_subreg(&lprf_hw, SR_LDO_A, 1);           //Enable LDOs
+    write_subreg(&lprf_hw, SR_LDO_A_VOUT, 0x11);     //configure LDOs
+}
+
 void chip_configuration()
 {
     write_reg(&lprf_hw, RG_GLOBAL_RESETB, 0xFF); // Reset All
@@ -249,6 +354,7 @@ void chip_configuration()
 
     //printf("enable and configure LDOs\n");
     write_subreg(&lprf_hw, SR_LDO_A, 1);           //Enable all LDOs
+    write_subreg(&lprf_hw, SR_LDO_A_VOUT, 0x11);     //configure Analog LDO
     write_subreg(&lprf_hw, SR_LDO_PLL, 1);
     write_subreg(&lprf_hw, SR_LDO_VCO, 1);
     write_subreg(&lprf_hw, SR_LDO_TX24, 1);
@@ -346,49 +452,6 @@ void chip_configuration()
     write_subreg(&lprf_hw, SR_SM_TIME_PD_EN, 256);
 }
 
-void minimal_configuration()
-{
-    write_reg(&lprf_hw, RG_GLOBAL_RESETB, 0xFF); // Reset All
-    write_reg(&lprf_hw, RG_GLOBAL_initALL, 0xFF); // Load Init Values
-    write_subreg(&lprf_hw, SR_SM_EN, 0);          // Disable State machine
-    
-    // Set external Clock
-    write_subreg(&lprf_hw, SR_CTRL_CLK_CDE_OSC, 0);
-    write_subreg(&lprf_hw, SR_CTRL_CLK_CDE_PAD, 1);
-    write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_OSC, 0);
-    write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_PAD, 1);
-    write_subreg(&lprf_hw, SR_CTRL_CLK_PLL_OSC, 0);
-    write_subreg(&lprf_hw, SR_CTRL_CLK_PLL_PAD, 1);
-    write_subreg(&lprf_hw, SR_CTRL_CLK_C3X_OSC, 0);
-    write_subreg(&lprf_hw, SR_CTRL_CLK_C3X_PAD, 1);
-    write_subreg(&lprf_hw, SR_CTRL_CLK_FALLB, 0);
-    
-    // activate 2.4GHz Band
-    write_subreg(&lprf_hw, SR_RX_FE_EN, 1);            //enable RX frontend
-    write_subreg(&lprf_hw, SR_RX_RF_MODE, 0);          //set band to 2.4GHz
-    write_subreg(&lprf_hw, SR_RX_LO_EXT, 1);           //set to external LO
-    write_subreg(&lprf_hw, SR_RX24_PON, 1);            //power on RX24 frontend
-    write_subreg(&lprf_hw, SR_RX800_PON, 0);           //power off RX800 frontend
-    write_subreg(&lprf_hw, SR_RX433_PON, 0);           //power on RX433 frontend
-    //write_subreg(&lprf_hw, SR_LNA24_CTRIM, 255);
-    write_subreg(&lprf_hw, SR_PPF_TRIM, 5);
-    
-    write_subreg(&lprf_hw, SR_PPF_HGAIN, 1);           //magic Polyphase filter settings
-    write_subreg(&lprf_hw, SR_PPF_LLIF, 0);            //magic Polyphase filter settings
-    write_subreg(&lprf_hw, SR_LNA24_ISETT, 7);         //ioSetReg('LNA24_ISETT','07');  max current for (wakeup?) 2.4GHz LNA
-    
-    // ADC_CLK
-    write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 0);
-    write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 1);
-    write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1);  // Activate Clock tripler
-    
-    write_subreg(&lprf_hw, SR_CTRL_ADC_MULTIBIT, 0); // Set single bit mode for ADC
-    //write_subreg(&lprf_hw, SR_ADC_D_EN, 1);
-    write_subreg(&lprf_hw, SR_CTRL_ADC_ENABLE, 1);   // Activate ADC
-    
-    write_subreg(&lprf_hw, SR_LDO_A, 1);           //Enable LDOs
-    write_subreg(&lprf_hw, SR_LDO_A_VOUT, 0x11);     //configure LDOs
-}
 
 void test_rx(void)
 {
