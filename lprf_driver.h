@@ -52,6 +52,7 @@ void pabort(const char *s);
 uint8_t reverse_bit_order(uint8_t source);
 void lprf_write_reg(int fd, unsigned int addr, unsigned int data);
 uint8_t lprf_read_reg(int fd, unsigned int addr);
+uint8_t lprf_phy_status_byte(int fd);
 uint8_t lprf_read_frame(int fd, uint8_t *rxbuf);
 void lprf_write_frame(int fd, uint8_t *txbuf, uint8_t len);
 

@@ -30,6 +30,8 @@ void minimal_demod_configuration();
 void chip_configuration();
 void receive_without_statemachine();
 void receive_with_statemachine();
+void manual_gain_settings();
+void set_clock_freq(int is_96_MHz);
 
 int main(int argc, char *argv[])
 {
@@ -41,7 +43,11 @@ int main(int argc, char *argv[])
     //minimal_adc_configuration();
     minimal_demod_configuration();
     
-    //write_subreg(&lprf_hw, SR_CTRL_C3X_LTUNE, 0);
+    //set_clock_freq(1);
+    
+    //manual_gain_settings();
+    
+    write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 0); // Disables first filter stage
     
     receive_without_statemachine();
     //receive_with_statemachine();
@@ -184,24 +190,36 @@ void receive_without_statemachine()
     for (i = 0; i < 10000; ++i)
     {
 	int PD = read_subreg(&lprf_hw, SR_DEM_PD_OUT);
-	printf("%d", PD);
+	//printf("%d", PD);
 	if (PD != 0)
 	{
-	    printf("\nPreamble Detected\n");
+	    printf("\nPreamble Detected after %d SPI reads\n", i);
 	    break;
 	}
     }
     printf("\n");
     
     sleep(1);
-    uint8_t rx_buffer[256] = {0};
-    int length = 0;
-    length = read_frame(&lprf_hw, rx_buffer);
-    printf("%d bytes read from fifo\n", length);
-    for(i = 0; i < length; ++i)
+    write_subreg(&lprf_hw, SR_DEM_EN, 0);
+    printf("Demodulation disabled after one second\n\n");
+    for(i = 0; i < 10; i++)
     {
-	printf("%d:\t%d\t%x\n", i, rx_buffer[i], rx_buffer[i]);
+	uint8_t rx_buffer[256] = {0};
+	int length = 0;
+	length = read_frame(&lprf_hw, rx_buffer);
+	printf("%d bytes read from fifo\n", length);
+	print_frame(rx_buffer, length);
+	
+	uint8_t phy_status = lprf_phy_status_byte(lprf_hw.fd);
+	printf("Phy_Status = %x\n", phy_status);
+	if (phy_status & 0x08)
+	    break;
     }
+    
+    //for(i = 0; i < length; ++i)
+    //{
+    //printf("%d:\t%d\t%x\n", i, rx_buffer[i], rx_buffer[i]);
+    //}
 }
 
 
@@ -261,6 +279,37 @@ void receive_with_statemachine()
     
 }
 
+void manual_gain_settings()
+{
+    write_subreg(&lprf_hw, SR_DEM_AGC_EN, 0);
+    
+    write_subreg(&lprf_hw, SR_DEM_GC1, 0x0F);
+    write_subreg(&lprf_hw, SR_DEM_GC2, 0x0F);
+    write_subreg(&lprf_hw, SR_DEM_GC3, 0x0F);
+    write_subreg(&lprf_hw, SR_DEM_GC4, 0x0F);
+    write_subreg(&lprf_hw, SR_DEM_GC5, 0x0F);
+    write_subreg(&lprf_hw, SR_DEM_GC6, 0x0F);
+    write_subreg(&lprf_hw, SR_DEM_GC7, 0x0F);
+    
+}
+
+void set_clock_freq(int is_96_MHz)
+{ 
+    if(is_96_MHz)
+    {
+	write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 1);
+	write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 0);
+	write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 1);
+	write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1);
+    }
+    else
+    {
+	write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 0);
+	write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 1);
+	write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 0);
+	write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0);
+    }
+}
 
 void minimal_demod_configuration()
 {
@@ -270,7 +319,7 @@ void minimal_demod_configuration()
     write_subreg(&lprf_hw, SR_DEM_EN, 1);
     write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 1);
     write_subreg(&lprf_hw, SR_DEM_PD_EN, 1);
-    write_subreg(&lprf_hw, SR_DEM_AGC_EN, 0);
+    write_subreg(&lprf_hw, SR_DEM_AGC_EN, 1);
     write_subreg(&lprf_hw, SR_DEM_FREQ_OFFSET_CAL_EN, 0);
     write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 1);
     write_subreg(&lprf_hw, SR_DEM_BTLE_MODE, 0);
@@ -278,12 +327,11 @@ void minimal_demod_configuration()
     write_subreg(&lprf_hw, SR_DEM_IF_SEL, 0);
     write_subreg(&lprf_hw, SR_DEM_DATA_RATE_SEL, 3);
     
-    write_subreg(&lprf_hw, SR_DEM_IQ_CROSS, 1);
+    write_subreg(&lprf_hw, SR_DEM_IQ_CROSS, 0);
     
     //write_subreg(&lprf_hw, SR_INVERT_FIFO_CLK, 0);
        
 }
-
 
 void minimal_adc_configuration()
 {

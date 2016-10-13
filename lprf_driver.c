@@ -147,6 +147,33 @@ uint8_t lprf_read_reg(int fd, unsigned int addr)
 	return rx[2];
 }
 
+// lprf_read_reg reads config data from registers
+uint8_t lprf_phy_status_byte(int fd)
+{
+	int ret;
+	//uint8_t *tx = (uint8_t*)malloc(cmd_len + addr_len + data_len - 1);    
+	uint8_t tx[] = {0x00, 0x00, 0x00};
+	uint8_t rx[ARRAY_SIZE(tx)] = {0, };
+	tx[0] = CMD_REGR;
+
+	//wait for completion of previous operation	
+	
+	struct spi_ioc_transfer tr = {
+		.tx_buf = (unsigned long)tx,
+		.rx_buf = (unsigned long)rx,
+		.len = ARRAY_SIZE(tx),
+		.delay_usecs = delay,
+		.speed_hz = speed,
+		.bits_per_word = bits,
+	};	
+	ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);	
+	if (ret < 1)
+		pabort("can't send spi message");	
+	//printf("R: addr:0x%0.2X data:0x%0.2X\n", tx[1], rx[2]);		
+		
+	return rx[0];
+}
+
 /*
  * read frame buffer content
  *  - fd is device file descriptor
@@ -208,9 +235,9 @@ void lprf_write_frame(int fd, uint8_t *txbuf, uint8_t len)
 	tx[0] = CMD_FRMW;
 	tx[1] = len;
 	int i;
-	//for(i=0; i<len; i++) {
-	//	txbuf[i] = reverse_bit_order(txbuf[i]);
-	//}
+	for(i=0; i<len; i++) {
+		txbuf[i] = reverse_bit_order(txbuf[i]);  // Bluetooth requires LSB first transmission
+	}
 	memcpy(tx+2, txbuf, len);
 	
 	struct spi_ioc_transfer tr = {
