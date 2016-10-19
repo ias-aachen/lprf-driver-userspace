@@ -32,6 +32,7 @@ void receive_without_statemachine();
 void receive_with_statemachine();
 void manual_gain_settings();
 void set_clock_freq(int is_96_MHz);
+void read_gain_values();
 
 int main(int argc, char *argv[])
 {
@@ -42,16 +43,18 @@ int main(int argc, char *argv[])
     //chip_configuration();
     //minimal_adc_configuration();
     minimal_demod_configuration();
-    
+    set_clock_freq(1);
     //set_clock_freq(1);
     
     //manual_gain_settings();
     
-    write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 0); // Disables first filter stage
+    //write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 0); // Disables first filter stage
     
     receive_without_statemachine();
     //receive_with_statemachine();
     
+    sleep(0.1);
+    read_gain_values();
     
     
     
@@ -152,11 +155,6 @@ void print_frame(uint8_t *payload, uint16_t payload_len)
         printf("\n");
     }
     printf("\n");
-    write_subreg(&lprf_hw, SR_PPF_M1, 1);              //magic Polyphase filter settings
-    write_subreg(&lprf_hw, SR_PPF_M0, 0);              //magic Polyphase filter settings
-    write_subreg(&lprf_hw, SR_PPF_TRIM, 5);            //magic Polyphase filter settings
-    write_subreg(&lprf_hw, SR_PPF_HGAIN, 1);           //magic Polyphase filter settings
-    write_subreg(&lprf_hw, SR_PPF_LLIF, 0);            //magic Polyphase filter settings
 }
 
 int testSpiConnection()
@@ -187,7 +185,7 @@ int testSpiConnection()
 void receive_without_statemachine()
 {
     int i;
-    for (i = 0; i < 10000; ++i)
+    for (i = 0; i < 100000; ++i)
     {
 	int PD = read_subreg(&lprf_hw, SR_DEM_PD_OUT);
 	//printf("%d", PD);
@@ -199,9 +197,9 @@ void receive_without_statemachine()
     }
     printf("\n");
     
-    sleep(1);
+    sleep(0.1);
     write_subreg(&lprf_hw, SR_DEM_EN, 0);
-    printf("Demodulation disabled after one second\n\n");
+    printf("Demodulation disabled after 0.1 seconds\n\n");
     for(i = 0; i < 10; i++)
     {
 	uint8_t rx_buffer[256] = {0};
@@ -211,7 +209,7 @@ void receive_without_statemachine()
 	print_frame(rx_buffer, length);
 	
 	uint8_t phy_status = lprf_phy_status_byte(lprf_hw.fd);
-	printf("Phy_Status = %x\n", phy_status);
+	printf("Phy_Status = %x\n\n", phy_status);
 	if (phy_status & 0x08)
 	    break;
     }
@@ -300,6 +298,7 @@ void set_clock_freq(int is_96_MHz)
 	write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 1);
 	write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 0);
 	write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 1);
+	write_subreg(&lprf_hw, SR_CTRL_CLK_IREF, 1); 
 	write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1);
     }
     else
@@ -307,6 +306,7 @@ void set_clock_freq(int is_96_MHz)
 	write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 0);
 	write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 1);
 	write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 0);
+	write_subreg(&lprf_hw, SR_CTRL_CLK_IREF, 6); 
 	write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0);
     }
 }
@@ -318,18 +318,19 @@ void minimal_demod_configuration()
     
     write_subreg(&lprf_hw, SR_DEM_EN, 1);
     write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 1);
-    write_subreg(&lprf_hw, SR_DEM_PD_EN, 1);
+    write_subreg(&lprf_hw, SR_DEM_PD_EN, 1); // needs to be enabled if fifo is used
     write_subreg(&lprf_hw, SR_DEM_AGC_EN, 1);
     write_subreg(&lprf_hw, SR_DEM_FREQ_OFFSET_CAL_EN, 0);
-    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 1);
-    write_subreg(&lprf_hw, SR_DEM_BTLE_MODE, 0);
+    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 0);
+    write_subreg(&lprf_hw, SR_DEM_BTLE_MODE, 1);
     
     write_subreg(&lprf_hw, SR_DEM_IF_SEL, 0);
     write_subreg(&lprf_hw, SR_DEM_DATA_RATE_SEL, 3);
     
     write_subreg(&lprf_hw, SR_DEM_IQ_CROSS, 0);
     
-    //write_subreg(&lprf_hw, SR_INVERT_FIFO_CLK, 0);
+    write_subreg(&lprf_hw, SR_CTRL_C3X_LTUNE, 3);
+    //write_subreg(&lprf_hw, SR_INVERT_FIFO_CLK, 0);  // Only works with statemachine
        
 }
 
@@ -337,6 +338,7 @@ void minimal_adc_configuration()
 {
     write_reg(&lprf_hw, RG_GLOBAL_RESETB, 0xFF); // Reset All
     write_reg(&lprf_hw, RG_GLOBAL_initALL, 0xFF); // Load Init Values
+    
     write_subreg(&lprf_hw, SR_SM_EN, 0);          // Disable State machine
     
     // Set external Clock
@@ -500,6 +502,17 @@ void chip_configuration()
     write_subreg(&lprf_hw, SR_SM_TIME_PD_EN, 256);
 }
 
+void read_gain_values()
+{
+    printf("Current gain values:\n");
+    printf("GC1:\t%d\n", read_subreg(&lprf_hw, SR_DEM_GC1_OUT) );
+    printf("GC2:\t%d\n", read_subreg(&lprf_hw, SR_DEM_GC2_OUT) );
+    printf("GC3:\t%d\n", read_subreg(&lprf_hw, SR_DEM_GC3_OUT) );
+    printf("GC4:\t%d\n", read_subreg(&lprf_hw, SR_DEM_GC4_OUT) );
+    printf("GC5:\t%d\n", read_subreg(&lprf_hw, SR_DEM_GC5_OUT) );
+    printf("GC6:\t%d\n", read_subreg(&lprf_hw, SR_DEM_GC6_OUT) );
+    printf("GC7:\t%d\n", read_subreg(&lprf_hw, SR_DEM_GC7_OUT) );
+}
 
 void test_rx(void)
 {
