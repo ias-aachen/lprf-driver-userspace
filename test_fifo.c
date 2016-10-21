@@ -24,6 +24,10 @@ static int myopt = 1;
 int connect_spi();
 int configureSpiInterface(int fd);
 void print_frame(uint8_t *payload, uint16_t payload_len) ;
+void print_bit_stream(uint8_t *payload, uint16_t payload_len);
+int find_8bit_pattern(uint8_t *payload, int payload_len, uint8_t pattern);
+int find_16bit_pattern(uint8_t *payload, int payload_len, uint16_t pattern);
+void revert_bit_order_of_frame(uint8_t *payload, uint16_t payload_len);
 int testSpiConnection();
 void minimal_adc_configuration();
 void minimal_demod_configuration();
@@ -33,6 +37,7 @@ void receive_with_statemachine();
 void manual_gain_settings();
 void set_clock_freq(int is_96_MHz);
 void read_gain_values();
+void activate_external_96MHz_clock();
 
 int main(int argc, char *argv[])
 {
@@ -41,16 +46,17 @@ int main(int argc, char *argv[])
         return -1;
     
     //chip_configuration();
-    //minimal_adc_configuration();
-    minimal_demod_configuration();
-    set_clock_freq(1);
+    minimal_adc_configuration();
+    //minimal_demod_configuration();
+    
+    //activate_external_96MHz_clock();
     //set_clock_freq(1);
     
     //manual_gain_settings();
     
     //write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 0); // Disables first filter stage
     
-    receive_without_statemachine();
+    //receive_without_statemachine();
     //receive_with_statemachine();
     
     sleep(0.1);
@@ -126,6 +132,15 @@ int configureSpiInterface(int fd)
 }
 
 
+void revert_bit_order_of_frame(uint8_t *payload, uint16_t payload_len)
+{
+    int i = 0;
+    for(i = 0; i < payload_len; ++i)
+    {
+	payload[i] = reverse_bit_order(payload[i]);
+    }
+}
+
 
 void print_frame(uint8_t *payload, uint16_t payload_len) 
 {
@@ -157,6 +172,28 @@ void print_frame(uint8_t *payload, uint16_t payload_len)
     printf("\n");
 }
 
+void print_bit_stream(uint8_t *payload, uint16_t payload_len)
+{
+    int i = 0, j=0;
+    for( i = 0; i < payload_len; ++i)
+    {
+	if (i % 10 == 0)
+	    printf("\n");
+	
+	//for( j = 0; j < 8; ++j)
+	//{
+	//    printf("%d", (payload[i] & (1 << j)) >> j );
+	//}
+	
+	for( j = 7; j >= 0; --j)
+	{
+	    printf("%d", (payload[i] & (1 << j)) >> j );
+	}
+	printf(" ");
+    }
+    printf("\n");
+}
+
 int testSpiConnection()
 {
     //reset
@@ -184,6 +221,8 @@ int testSpiConnection()
 
 void receive_without_statemachine()
 {
+    write_subreg(&lprf_hw, SR_DEM_PD_EN, 0);
+    write_subreg(&lprf_hw, SR_DEM_PD_EN, 1);
     int i;
     for (i = 0; i < 100000; ++i)
     {
@@ -200,19 +239,39 @@ void receive_without_statemachine()
     sleep(0.1);
     write_subreg(&lprf_hw, SR_DEM_EN, 0);
     printf("Demodulation disabled after 0.1 seconds\n\n");
-    for(i = 0; i < 10; i++)
+    uint8_t payload[1280] = {0};
+    int total_length = 0;
+    for(i = 0; i < 5; i++)
     {
 	uint8_t rx_buffer[256] = {0};
 	int length = 0;
 	length = read_frame(&lprf_hw, rx_buffer);
+	memcpy(&payload[total_length], rx_buffer, length);
+	total_length += length;
+	
 	printf("%d bytes read from fifo\n", length);
-	print_frame(rx_buffer, length);
+	//print_frame(rx_buffer, length);
+	//print_bit_stream(rx_buffer, length);
 	
 	uint8_t phy_status = lprf_phy_status_byte(lprf_hw.fd);
 	printf("Phy_Status = %x\n\n", phy_status);
 	if (phy_status & 0x08)
 	    break;
     }
+    
+    revert_bit_order_of_frame(payload, total_length);
+    print_bit_stream(payload, total_length);
+    
+    total_length = find_8bit_pattern(payload, total_length, 0xA0);
+    //total_length = find_16bit_pattern(payload, total_length, 0xAAA0);
+    if (total_length != 0)
+    {
+	printf("\n\nPattern found\n");
+	//print_bit_stream(payload, total_length);
+	print_frame(payload, total_length);
+    }
+    else
+	printf("\n\nPattern not found\n");
     
     //for(i = 0; i < length; ++i)
     //{
@@ -277,17 +336,103 @@ void receive_with_statemachine()
     
 }
 
+int find_8bit_pattern(uint8_t *payload, int payload_len, uint8_t pattern)
+{
+    int i = 0;
+    int shift = 0;
+    
+    uint16_t pattern_16bit = pattern << 8;
+    int pattern_found = 0;
+    
+    for( i = 0; i < payload_len - 1; ++i)
+    {
+	for(shift = 0; shift < 8; ++shift)
+	{
+	    uint16_t temp = ((payload[i] << 8) + payload[i+1]);
+	    temp = temp << shift;
+	    temp &= 0xFF00;
+	    if (pattern_16bit == temp)
+	    {
+		pattern_found = 1;
+		printf("pattern found at %dth byte with %d bit shift to left\n\n", i+1, shift);
+		break;
+	    }
+	}
+	if (pattern_found)
+	    break;
+    }
+    
+    if (!pattern_found)
+	return 0;
+    
+    int start_position = i+1;
+    payload_len -= start_position;
+    
+    for(i = 0; i < payload_len-1; ++i)
+    {
+	uint16_t temp = ((payload[start_position + i] << 8) + payload[start_position + i+1]);
+	temp = temp << shift;
+	temp = temp >> 8;
+	payload[i] = temp;
+    }
+    return payload_len;
+    
+}
+
+int find_16bit_pattern(uint8_t *payload, int payload_len, uint16_t pattern)
+{
+    int i = 0;
+    int shift = 0;
+    
+    uint32_t pattern_32bit = pattern << 16;
+    int pattern_found = 0;
+    
+    for( i = 0; i < payload_len - 3; ++i)
+    {
+	for(shift = 0; shift < 8; ++shift)
+	{
+	    uint32_t temp = ((payload[i] << 24) + (payload[i+1] << 16) + (payload[i+2] << 8));
+	    temp = temp << shift;
+	    temp &= 0xFFFF0000;
+	    if (pattern_32bit == temp)
+	    {
+		pattern_found = 1;
+		printf("pattern found at %dth byte with %d bit shift to left\n\n", i+1, shift);
+		break;
+	    }
+	}
+	if (pattern_found)
+	    break;
+    }
+    
+    if (!pattern_found)
+	return 0;
+    
+    int start_position = i+2;
+    payload_len -= start_position;
+    
+    for(i = 0; i < payload_len-3; ++i)
+    {
+	uint32_t temp = ((payload[start_position + i] << 24) + (payload[start_position + i+1] << 16) + (payload[start_position + i+2] << 8));
+	temp = temp << shift;
+	temp = temp >> 24;
+	payload[i] = temp;
+    }
+    return payload_len;
+    
+}
+
 void manual_gain_settings()
 {
     write_subreg(&lprf_hw, SR_DEM_AGC_EN, 0);
     
-    write_subreg(&lprf_hw, SR_DEM_GC1, 0x0F);
-    write_subreg(&lprf_hw, SR_DEM_GC2, 0x0F);
-    write_subreg(&lprf_hw, SR_DEM_GC3, 0x0F);
-    write_subreg(&lprf_hw, SR_DEM_GC4, 0x0F);
-    write_subreg(&lprf_hw, SR_DEM_GC5, 0x0F);
-    write_subreg(&lprf_hw, SR_DEM_GC6, 0x0F);
-    write_subreg(&lprf_hw, SR_DEM_GC7, 0x0F);
+    write_subreg(&lprf_hw, SR_DEM_GC1, 0x00);
+    write_subreg(&lprf_hw, SR_DEM_GC2, 0x00);
+    write_subreg(&lprf_hw, SR_DEM_GC3, 0x00);
+    write_subreg(&lprf_hw, SR_DEM_GC4, 0x00);
+    write_subreg(&lprf_hw, SR_DEM_GC5, 0x00);
+    write_subreg(&lprf_hw, SR_DEM_GC6, 0x00);
+    write_subreg(&lprf_hw, SR_DEM_GC7, 0x00);
     
 }
 
@@ -311,6 +456,16 @@ void set_clock_freq(int is_96_MHz)
     }
 }
 
+void activate_external_96MHz_clock()
+{
+    write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 1);
+    write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CD3_ENABLE, 1); //enable clock by three devider for digital part
+    write_subreg(&lprf_hw, SR_CTRL_CLK_IREF, 6); 
+    write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0);
+}
+
 void minimal_demod_configuration()
 {
     minimal_adc_configuration();
@@ -321,16 +476,31 @@ void minimal_demod_configuration()
     write_subreg(&lprf_hw, SR_DEM_PD_EN, 1); // needs to be enabled if fifo is used
     write_subreg(&lprf_hw, SR_DEM_AGC_EN, 1);
     write_subreg(&lprf_hw, SR_DEM_FREQ_OFFSET_CAL_EN, 0);
-    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 0);
+    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 1);
     write_subreg(&lprf_hw, SR_DEM_BTLE_MODE, 1);
     
-    write_subreg(&lprf_hw, SR_DEM_IF_SEL, 0);
-    write_subreg(&lprf_hw, SR_DEM_DATA_RATE_SEL, 3);
+    write_subreg(&lprf_hw, SR_DEM_IF_SEL, 2);
+    write_subreg(&lprf_hw, SR_DEM_DATA_RATE_SEL, 2);
     
-    write_subreg(&lprf_hw, SR_DEM_IQ_CROSS, 0);
+    write_subreg(&lprf_hw, SR_PPF_M0, 0);
+    write_subreg(&lprf_hw, SR_PPF_M1, 0);
+    write_subreg(&lprf_hw, SR_PPF_TRIM, 0);
+    write_subreg(&lprf_hw, SR_PPF_HGAIN, 1);
+    write_subreg(&lprf_hw, SR_PPF_LLIF, 0);
     
-    write_subreg(&lprf_hw, SR_CTRL_C3X_LTUNE, 3);
+    write_subreg(&lprf_hw, SR_CTRL_ADC_BW_SEL, 1);
+    write_subreg(&lprf_hw, SR_CTRL_ADC_BW_TUNE, 4);
+    write_subreg(&lprf_hw, SR_CTRL_ADC_DR_SEL, 0);
+    //write_subreg(&lprf_hw, SR_CTRL_ADC_DWA, 1);
+    
+    
+    write_subreg(&lprf_hw, SR_DEM_IQ_CROSS, 1);
+    write_subreg(&lprf_hw, SR_DEM_IQ_INV, 0);
+    
+    write_subreg(&lprf_hw, SR_CTRL_C3X_LTUNE, 0);
     //write_subreg(&lprf_hw, SR_INVERT_FIFO_CLK, 0);  // Only works with statemachine
+    
+    manual_gain_settings();
        
 }
 
