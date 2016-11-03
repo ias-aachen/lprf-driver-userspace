@@ -31,6 +31,7 @@ void revert_bit_order_of_frame(uint8_t *payload, uint16_t payload_len);
 int testSpiConnection();
 void minimal_adc_configuration();
 void minimal_demod_configuration();
+void manual_PLL_configuration();
 void chip_configuration();
 void receive_without_statemachine();
 void receive_with_statemachine();
@@ -46,8 +47,8 @@ int main(int argc, char *argv[])
         return -1;
     
     //chip_configuration();
-    minimal_adc_configuration();
-    //minimal_demod_configuration();
+    //minimal_adc_configuration();
+    minimal_demod_configuration();
     
     //activate_external_96MHz_clock();
     //set_clock_freq(1);
@@ -57,9 +58,9 @@ int main(int argc, char *argv[])
     //write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 0); // Disables first filter stage
     
     //receive_without_statemachine();
-    //receive_with_statemachine();
+    receive_with_statemachine();
     
-    sleep(0.1);
+    usleep(100000);
     read_gain_values();
     
     
@@ -334,6 +335,24 @@ void receive_with_statemachine()
         printf("no payload data received!\n");
     
     
+    
+    // process received data
+    revert_bit_order_of_frame(payload, payload_len);
+    print_bit_stream(payload, payload_len);
+    
+    payload_len = find_8bit_pattern(payload, payload_len, 0xA0);
+    //payload_len = find_16bit_pattern(payload, payload_len, 0xAAA0);
+    if (payload_len != 0)
+    {
+	printf("\n\nPattern found\n");
+	//print_bit_stream(payload, payload_len);
+	print_frame(payload, payload_len);
+    }
+    else
+	printf("\n\nPattern not found\n");
+    
+    
+    
 }
 
 int find_8bit_pattern(uint8_t *payload, int payload_len, uint8_t pattern)
@@ -426,13 +445,13 @@ void manual_gain_settings()
 {
     write_subreg(&lprf_hw, SR_DEM_AGC_EN, 0);
     
-    write_subreg(&lprf_hw, SR_DEM_GC1, 0x00);
-    write_subreg(&lprf_hw, SR_DEM_GC2, 0x00);
-    write_subreg(&lprf_hw, SR_DEM_GC3, 0x00);
-    write_subreg(&lprf_hw, SR_DEM_GC4, 0x00);
-    write_subreg(&lprf_hw, SR_DEM_GC5, 0x00);
-    write_subreg(&lprf_hw, SR_DEM_GC6, 0x00);
-    write_subreg(&lprf_hw, SR_DEM_GC7, 0x00);
+    write_subreg(&lprf_hw, SR_DEM_GC1, 0);
+    write_subreg(&lprf_hw, SR_DEM_GC2, 0);
+    write_subreg(&lprf_hw, SR_DEM_GC3, 1);
+    write_subreg(&lprf_hw, SR_DEM_GC4, 0);
+    write_subreg(&lprf_hw, SR_DEM_GC5, 0);
+    write_subreg(&lprf_hw, SR_DEM_GC6, 1);
+    write_subreg(&lprf_hw, SR_DEM_GC7, 4);
     
 }
 
@@ -464,23 +483,23 @@ void activate_external_96MHz_clock()
     write_subreg(&lprf_hw, SR_CTRL_CD3_ENABLE, 1); //enable clock by three devider for digital part
     write_subreg(&lprf_hw, SR_CTRL_CLK_IREF, 6); 
     write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CDE_TUNE, 1);
 }
 
 void minimal_demod_configuration()
 {
     minimal_adc_configuration();
     
-    
     write_subreg(&lprf_hw, SR_DEM_EN, 1);
     write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 1);
     write_subreg(&lprf_hw, SR_DEM_PD_EN, 1); // needs to be enabled if fifo is used
     write_subreg(&lprf_hw, SR_DEM_AGC_EN, 1);
     write_subreg(&lprf_hw, SR_DEM_FREQ_OFFSET_CAL_EN, 0);
-    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 1);
+    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 0);
     write_subreg(&lprf_hw, SR_DEM_BTLE_MODE, 1);
     
     write_subreg(&lprf_hw, SR_DEM_IF_SEL, 2);
-    write_subreg(&lprf_hw, SR_DEM_DATA_RATE_SEL, 2);
+    write_subreg(&lprf_hw, SR_DEM_DATA_RATE_SEL, 3);
     
     write_subreg(&lprf_hw, SR_PPF_M0, 0);
     write_subreg(&lprf_hw, SR_PPF_M1, 0);
@@ -490,22 +509,31 @@ void minimal_demod_configuration()
     
     write_subreg(&lprf_hw, SR_CTRL_ADC_BW_SEL, 1);
     write_subreg(&lprf_hw, SR_CTRL_ADC_BW_TUNE, 4);
-    write_subreg(&lprf_hw, SR_CTRL_ADC_DR_SEL, 0);
+    write_subreg(&lprf_hw, SR_CTRL_ADC_DR_SEL, 2);
     //write_subreg(&lprf_hw, SR_CTRL_ADC_DWA, 1);
     
     
     write_subreg(&lprf_hw, SR_DEM_IQ_CROSS, 1);
     write_subreg(&lprf_hw, SR_DEM_IQ_INV, 0);
     
-    write_subreg(&lprf_hw, SR_CTRL_C3X_LTUNE, 0);
+    //write_subreg(&lprf_hw, SR_CTRL_C3X_LTUNE, 0);
     //write_subreg(&lprf_hw, SR_INVERT_FIFO_CLK, 0);  // Only works with statemachine
     
-    manual_gain_settings();
+    //activate_external_96MHz_clock();
+    //manual_gain_settings();
+    
+    //manual_PLL_configuration();
+    
+    write_subreg(&lprf_hw, SR_DEM_RESETB, 0);
+    write_subreg(&lprf_hw, SR_DEM_RESETB, 1);
+    
        
 }
 
 void minimal_adc_configuration()
 {
+    write_reg(&lprf_hw, RG_GLOBAL_RESETB, 0xFF); // Reset All
+    write_reg(&lprf_hw, RG_GLOBAL_RESETB, 0x00); // Reset All
     write_reg(&lprf_hw, RG_GLOBAL_RESETB, 0xFF); // Reset All
     write_reg(&lprf_hw, RG_GLOBAL_initALL, 0xFF); // Load Init Values
     
@@ -535,12 +563,13 @@ void minimal_adc_configuration()
     write_subreg(&lprf_hw, SR_PPF_HGAIN, 1);           //magic Polyphase filter settings
     write_subreg(&lprf_hw, SR_PPF_LLIF, 0);            //magic Polyphase filter settings
     write_subreg(&lprf_hw, SR_LNA24_ISETT, 7);         //ioSetReg('LNA24_ISETT','07');  max current for (wakeup?) 2.4GHz LNA
+    write_subreg(&lprf_hw, SR_LNA24_SPCTRIM, 15);      
     
     // ADC_CLK
     write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 0);
     write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 1);
     write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1);  // Activate Clock tripler
-    //write_subreg(&lprf_hw, SR_CTRL_C3X_LTUNE, 3);
+    write_subreg(&lprf_hw, SR_CTRL_C3X_LTUNE, 1);
     
     
     write_subreg(&lprf_hw, SR_CTRL_ADC_MULTIBIT, 0); // Set single bit mode for ADC
@@ -549,6 +578,38 @@ void minimal_adc_configuration()
     
     write_subreg(&lprf_hw, SR_LDO_A, 1);           //Enable LDOs
     write_subreg(&lprf_hw, SR_LDO_A_VOUT, 0x11);     //configure LDOs
+    
+    write_subreg(&lprf_hw, SR_LDO_D_VOUT, 0x12);     //configure LDOs
+}
+
+void manual_PLL_configuration()
+{
+    write_subreg(&lprf_hw, SR_PLL_BUFFER_EN, 1);
+    write_subreg(&lprf_hw, SR_PLL_EN, 1);
+    write_subreg(&lprf_hw, SR_PLL_REF96_SEL, 0);
+    write_subreg(&lprf_hw, SR_IREF_PLL_CTRLB, 0);
+    
+    write_subreg(&lprf_hw, SR_PLL_MOD_EN, 0);  // no modulation (RX_case)
+    write_subreg(&lprf_hw, SR_PLL_MOD_FREQ_DEV, 0);
+    
+    
+    write_subreg(&lprf_hw, SR_LDO_PLL, 1);
+    write_subreg(&lprf_hw, SR_LDO_PLL_VOUT, 31);   //1.74V
+    write_subreg(&lprf_hw, SR_LDO_VCO_VOUT, 31);   //1.76V
+    
+    
+    write_subreg(&lprf_hw, SR_PLL_CHN_INT, 67);
+    write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_H, 0);
+    write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_M, 0);
+    write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_L, 0);
+    write_subreg(&lprf_hw, SR_PLL_VCO_TUNE, 212);
+    
+    
+    write_subreg(&lprf_hw, SR_PLL_RESETB, 0);
+    write_subreg(&lprf_hw, SR_PLL_RESETB, 1);
+    
+    
+    write_subreg(&lprf_hw, SR_RX_LO_EXT, 0); 
 }
 
 void chip_configuration()
