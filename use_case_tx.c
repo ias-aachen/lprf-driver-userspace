@@ -9,8 +9,17 @@
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
 #include <byteswap.h>
-#include </home/pi/spidev/lprf_registers.h>
+#include "../lprf-driver/lprf_registers.h"
 #include </home/pi/spidev/lprf_driver.c>
+
+#define CMD_NONE 0
+#define CMD_SLEEP 2
+#define CMD_DEEPSLEEP 3
+#define CMD_TX 4
+#define CMD_TXIDLE 5
+#define CMD_RX 6
+#define CMD_RXHOLD 7
+
 
 	uint8_t txbuf0[] = {
 			   0x40, 0x00, 0x00, 0x00,  //1 

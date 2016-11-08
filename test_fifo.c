@@ -32,6 +32,7 @@ int testSpiConnection();
 void minimal_adc_configuration();
 void minimal_demod_configuration();
 void manual_PLL_configuration();
+void start_demodulation();
 void chip_configuration();
 void receive_without_statemachine();
 void receive_with_statemachine();
@@ -49,6 +50,8 @@ int main(int argc, char *argv[])
     //chip_configuration();
     //minimal_adc_configuration();
     minimal_demod_configuration();
+    
+    //start_demodulation();
     
     //activate_external_96MHz_clock();
     //set_clock_freq(1);
@@ -222,10 +225,10 @@ int testSpiConnection()
 
 void receive_without_statemachine()
 {
-    write_subreg(&lprf_hw, SR_DEM_PD_EN, 0);
-    write_subreg(&lprf_hw, SR_DEM_PD_EN, 1);
+    start_demodulation();
+    
     int i;
-    for (i = 0; i < 100000; ++i)
+    for (i = 0; i < 10000; ++i)
     {
 	int PD = read_subreg(&lprf_hw, SR_DEM_PD_OUT);
 	//printf("%d", PD);
@@ -237,7 +240,7 @@ void receive_without_statemachine()
     }
     printf("\n");
     
-    sleep(0.1);
+    usleep(500);
     write_subreg(&lprf_hw, SR_DEM_EN, 0);
     printf("Demodulation disabled after 0.1 seconds\n\n");
     uint8_t payload[1280] = {0};
@@ -490,7 +493,16 @@ void minimal_demod_configuration()
 {
     minimal_adc_configuration();
     
-    write_subreg(&lprf_hw, SR_DEM_EN, 1);
+    // initial gain settings
+    write_subreg(&lprf_hw, SR_DEM_GC1, 0);
+    write_subreg(&lprf_hw, SR_DEM_GC2, 0);
+    write_subreg(&lprf_hw, SR_DEM_GC3, 1);
+    write_subreg(&lprf_hw, SR_DEM_GC4, 0);
+    write_subreg(&lprf_hw, SR_DEM_GC5, 0);
+    write_subreg(&lprf_hw, SR_DEM_GC6, 1);
+    write_subreg(&lprf_hw, SR_DEM_GC7, 4);
+    
+    
     write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 1);
     write_subreg(&lprf_hw, SR_DEM_PD_EN, 1); // needs to be enabled if fifo is used
     write_subreg(&lprf_hw, SR_DEM_AGC_EN, 1);
@@ -523,10 +535,6 @@ void minimal_demod_configuration()
     //manual_gain_settings();
     
     //manual_PLL_configuration();
-    
-    write_subreg(&lprf_hw, SR_DEM_RESETB, 0);
-    write_subreg(&lprf_hw, SR_DEM_RESETB, 1);
-    
        
 }
 
@@ -610,6 +618,13 @@ void manual_PLL_configuration()
     
     
     write_subreg(&lprf_hw, SR_RX_LO_EXT, 0); 
+}
+
+void start_demodulation()
+{
+    write_subreg(&lprf_hw, SR_DEM_RESETB, 0);
+    write_subreg(&lprf_hw, SR_DEM_RESETB, 1);
+    write_subreg(&lprf_hw, SR_DEM_EN, 1);
 }
 
 void chip_configuration()
