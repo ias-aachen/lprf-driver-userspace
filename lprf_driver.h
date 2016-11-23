@@ -20,7 +20,7 @@
 #include <stdbool.h>  //for false&true
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
-#include </home/pi/lprf/lprf-driver/lprf_registers.h>
+#include "../lprf-driver/lprf_registers.h"
 #include <byteswap.h>
 #include "spi_hw_abstraction.h"
 

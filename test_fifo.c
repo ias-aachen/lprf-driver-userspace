@@ -10,7 +10,7 @@
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
 #include <byteswap.h>
-#include </home/pi/lprf/lprf-driver/lprf_registers.h>
+#include "../lprf-driver/lprf_registers.h"
 #include "lprf_driver.h"
 #include "spi_hw_abstraction.h"
 
@@ -29,6 +29,7 @@ int find_8bit_pattern(uint8_t *payload, int payload_len, uint8_t pattern);
 int find_16bit_pattern(uint8_t *payload, int payload_len, uint16_t pattern);
 void revert_bit_order_of_frame(uint8_t *payload, uint16_t payload_len);
 int testSpiConnection();
+void configuration_for_statemaschine();
 void minimal_adc_configuration();
 void minimal_demod_configuration();
 void manual_PLL_configuration();
@@ -49,7 +50,8 @@ int main(int argc, char *argv[])
     
     //chip_configuration();
     //minimal_adc_configuration();
-    minimal_demod_configuration();
+    //minimal_demod_configuration();
+    configuration_for_statemaschine();
     
     //start_demodulation();
     
@@ -64,7 +66,7 @@ int main(int argc, char *argv[])
     receive_with_statemachine();
     
     usleep(100000);
-    read_gain_values();
+    //read_gain_values();
     
     
     
@@ -83,7 +85,7 @@ int connect_spi(struct spi_hw *lprf_hw)
         pabort("can't open device");
     ret = configureSpiInterface(fd);
     lprf_hw->fd = fd;
-    printf("clk96=%d,  agc=%d, osr=%d, btle=%d, rate=%d, myopt=%d\n", clk96, agc, osr, btle, rate, myopt);
+    //printf("clk96=%d,  agc=%d, osr=%d, btle=%d, rate=%d, myopt=%d\n", clk96, agc, osr, btle, rate, myopt);
     if (testSpiConnection() == -1) 
         return -1;
     return ret;
@@ -287,39 +289,30 @@ void receive_without_statemachine()
 void receive_with_statemachine()
 {
     
-    //printf("enable and configure state machine\n");
-    write_subreg(&lprf_hw, SR_SM_EN, 1);               //enable state machine
-    write_subreg(&lprf_hw, SR_FIFO_MODE_EN, 1);        //enable FIFO mode
-    write_subreg(&lprf_hw, SR_DIRECT_TX, 0);           //disable transition to TX
-    write_subreg(&lprf_hw, SR_DIRECT_TX_IDLE, 0);      //do not transition to TX based on packet counter or fifo full
-    write_subreg(&lprf_hw, SR_RX_HOLD_MODE_EN, 0);     //do not transition to RX_HOLD based on packet counter or fifo full
-    write_subreg(&lprf_hw, SR_RX_TIMEOUT_EN, 0);       //disable RX_TIMEOUT counter
-    write_subreg(&lprf_hw, SR_RX_HOLD_ON_TIMEOUT, 0);  //disable transition RX -> RX_HOLD based on timeout counter
-    write_subreg(&lprf_hw, SR_AGC_AUTO_GAIN, 0);       //disable LNA gain switching based on RSSI
-    write_subreg(&lprf_hw, SR_RX_LENGTH_H, 127);
-    write_subreg(&lprf_hw, SR_RX_LENGTH_M, 255);    //set RX_LENGTH to maximum
-    write_subreg(&lprf_hw, SR_RX_LENGTH_L, 255);
-    
-    
     int i;
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
 
+    
+    usleep(500000); // For frame read triggerung on oscilloscope
+    
     printf("change state to RX     \n");
     write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_RX);   //change state to RX
     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
     //int i=0;
-    uint8_t sm_state = STATE_RECEIVING;
-    while(sm_state == STATE_RECEIVING) {
-        sm_state = read_reg(&lprf_hw, RG_SM_STATE);
-        i++;
-    }
-    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X after %d SPI reads\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), i);
     
+//     uint8_t sm_state = STATE_RECEIVING;
+//     while(sm_state == STATE_RECEIVING) {
+//         sm_state = read_reg(&lprf_hw, RG_SM_STATE);
+//         i++;
+//     }
+//     printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X after %d SPI reads\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), i);
+//     
     printf("read frame            \n");
     uint16_t payload_len = 0;
     uint16_t payload_len_temp = 255;
     uint8_t *payload = (uint8_t*)malloc(3500);
     uint8_t *payload_temp = (uint8_t*)malloc(256);
+    
     while(!(read_reg(&lprf_hw, RG_SM_FIFO) & 3)) {
         payload_len_temp = read_frame(&lprf_hw, payload_temp);
         printf("read %d bytes\n", payload_len_temp);
@@ -333,26 +326,30 @@ void receive_with_statemachine()
     
     //output frame
     if(payload_len > 0)
-        print_frame(payload, payload_len);
+    {
+        revert_bit_order_of_frame(payload, payload_len);
+        //print_frame(payload, payload_len);
+        print_bit_stream(payload, payload_len);
+    }
     else
         printf("no payload data received!\n");
     
     
     
-    // process received data
-    revert_bit_order_of_frame(payload, payload_len);
-    print_bit_stream(payload, payload_len);
-    
-    payload_len = find_8bit_pattern(payload, payload_len, 0xA0);
-    //payload_len = find_16bit_pattern(payload, payload_len, 0xAAA0);
-    if (payload_len != 0)
-    {
-	printf("\n\nPattern found\n");
-	//print_bit_stream(payload, payload_len);
-	print_frame(payload, payload_len);
-    }
-    else
-	printf("\n\nPattern not found\n");
+//     // process received data
+//     revert_bit_order_of_frame(payload, payload_len);
+//     print_bit_stream(payload, payload_len);
+//     
+//     payload_len = find_8bit_pattern(payload, payload_len, 0xA0);
+//     //payload_len = find_16bit_pattern(payload, payload_len, 0xAAA0);
+//     if (payload_len != 0)
+//     {
+// 	printf("\n\nPattern found\n");
+// 	//print_bit_stream(payload, payload_len);
+// 	print_frame(payload, payload_len);
+//     }
+//     else
+// 	printf("\n\nPattern not found\n");
     
     
     
@@ -487,6 +484,141 @@ void activate_external_96MHz_clock()
     write_subreg(&lprf_hw, SR_CTRL_CLK_IREF, 6); 
     write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 0);
     write_subreg(&lprf_hw, SR_CTRL_CDE_TUNE, 1);
+}
+
+void configuration_for_statemaschine()
+{
+    write_reg(&lprf_hw, RG_GLOBAL_RESETB, 0xFF); // Reset All
+    write_reg(&lprf_hw, RG_GLOBAL_RESETB, 0x00); // Reset All
+    write_reg(&lprf_hw, RG_GLOBAL_RESETB, 0xFF); // Reset All
+    write_reg(&lprf_hw, RG_GLOBAL_initALL, 0xFF); // Load Init Values
+    
+    // Set external Clock
+    write_subreg(&lprf_hw, SR_CTRL_CLK_CDE_OSC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_CDE_PAD, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_OSC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_DIG_PAD, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_PLL_OSC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_PLL_PAD, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_C3X_OSC, 0);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_C3X_PAD, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_FALLB, 0);
+    
+    // activate 2.4GHz Band
+    //write_subreg(&lprf_hw, SR_RX_FE_EN, 1);           // --> state maschine
+    write_subreg(&lprf_hw, SR_RX_RF_MODE, 0);          // set band to 2.4GHz, needed if USE_WAKEUP_MODE = 0
+    write_subreg(&lprf_hw, SR_RX_LO_EXT, 1);           //set to external LO
+    //write_subreg(&lprf_hw, SR_RX24_PON, 1);            // --> state maschine
+    //write_subreg(&lprf_hw, SR_RX800_PON, 0);           // --> state maschine
+    //write_subreg(&lprf_hw, SR_RX433_PON, 0);           // --> state maschine
+    
+    
+    //write_subreg(&lprf_hw, SR_LNA24_CTRIM, 255);
+    write_subreg(&lprf_hw, SR_PPF_TRIM, 5);
+    
+    write_subreg(&lprf_hw, SR_PPF_HGAIN, 1);           //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_PPF_LLIF, 0);            //magic Polyphase filter settings
+    write_subreg(&lprf_hw, SR_LNA24_ISETT, 7);         //ioSetReg('LNA24_ISETT','07');  max current for (wakeup?) 2.4GHz LNA
+    write_subreg(&lprf_hw, SR_LNA24_SPCTRIM, 15);      
+    
+    // ADC_CLK
+    write_subreg(&lprf_hw, SR_CTRL_CDE_ENABLE, 0);
+    write_subreg(&lprf_hw, SR_CTRL_C3X_ENABLE, 1);
+    write_subreg(&lprf_hw, SR_CTRL_CLK_ADC, 1);  // Activate Clock tripler
+    write_subreg(&lprf_hw, SR_CTRL_C3X_LTUNE, 1);
+    
+    
+    write_subreg(&lprf_hw, SR_CTRL_ADC_MULTIBIT, 0); // Set single bit mode for ADC
+    //write_subreg(&lprf_hw, SR_ADC_D_EN, 1);
+    write_subreg(&lprf_hw, SR_CTRL_ADC_ENABLE, 1);   // Activate ADC
+    
+    //write_subreg(&lprf_hw, SR_LDO_A, 1);           // --> state maschine
+    
+    write_subreg(&lprf_hw, SR_LDO_A_VOUT, 0x11);     //configure LDOs
+    write_subreg(&lprf_hw, SR_LDO_D_VOUT, 0x12);     //configure LDOs
+
+    
+    
+    
+    // initial gain settings
+    write_subreg(&lprf_hw, SR_DEM_GC1, 0);
+    write_subreg(&lprf_hw, SR_DEM_GC2, 0);
+    write_subreg(&lprf_hw, SR_DEM_GC3, 1);
+    write_subreg(&lprf_hw, SR_DEM_GC4, 0);
+    write_subreg(&lprf_hw, SR_DEM_GC5, 0);
+    write_subreg(&lprf_hw, SR_DEM_GC6, 1);
+    write_subreg(&lprf_hw, SR_DEM_GC7, 4);
+    
+    
+    write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 1);
+    //write_subreg(&lprf_hw, SR_DEM_PD_EN, 1);      // --> state maschine
+    write_subreg(&lprf_hw, SR_DEM_AGC_EN, 1);
+    write_subreg(&lprf_hw, SR_DEM_FREQ_OFFSET_CAL_EN, 0);
+    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 0);
+    write_subreg(&lprf_hw, SR_DEM_BTLE_MODE, 1);
+    
+    write_subreg(&lprf_hw, SR_DEM_IF_SEL, 2);
+    write_subreg(&lprf_hw, SR_DEM_DATA_RATE_SEL, 3);
+    
+    write_subreg(&lprf_hw, SR_PPF_M0, 0);
+    write_subreg(&lprf_hw, SR_PPF_M1, 0);
+    write_subreg(&lprf_hw, SR_PPF_TRIM, 0);
+    write_subreg(&lprf_hw, SR_PPF_HGAIN, 1);
+    write_subreg(&lprf_hw, SR_PPF_LLIF, 0);
+    
+    write_subreg(&lprf_hw, SR_CTRL_ADC_BW_SEL, 1);
+    write_subreg(&lprf_hw, SR_CTRL_ADC_BW_TUNE, 4);
+    write_subreg(&lprf_hw, SR_CTRL_ADC_DR_SEL, 2);
+    //write_subreg(&lprf_hw, SR_CTRL_ADC_DWA, 1);
+    
+    
+    write_subreg(&lprf_hw, SR_DEM_IQ_CROSS, 1);
+    write_subreg(&lprf_hw, SR_DEM_IQ_INV, 0);
+    
+    //write_subreg(&lprf_hw, SR_CTRL_C3X_LTUNE, 0);
+    
+    // STATE MASCHINE CONFIGURATION
+    
+    write_subreg(&lprf_hw, SR_FIFO_MODE_EN, 1);
+    
+    // SM TX
+    write_subreg(&lprf_hw, SR_TX_MODE, 0);
+    write_subreg(&lprf_hw, SR_INVERT_FIFO_CLK, 0);
+    write_subreg(&lprf_hw, SR_DIRECT_RX, 0);
+    write_subreg(&lprf_hw, SR_TX_ON_FIFO_IDLE, 0);
+    write_subreg(&lprf_hw, SR_TX_ON_FIFO_SLEEP, 0);
+    write_subreg(&lprf_hw, SR_TX_IDLE_MODE_EN, 0);
+    
+    // SM RX
+    write_subreg(&lprf_hw, SR_DIRECT_TX, 0);
+    write_subreg(&lprf_hw, SR_DIRECT_TX_IDLE, 0);
+    write_subreg(&lprf_hw, SR_RX_HOLD_MODE_EN, 0);
+    write_subreg(&lprf_hw, SR_RX_TIMEOUT_EN, 1);
+    write_subreg(&lprf_hw, SR_RX_HOLD_ON_TIMEOUT, 0);
+    write_subreg(&lprf_hw, SR_AGC_AUTO_GAIN, 0);
+    
+    // write_subreg(&lprf_hw, SR_RSSI_THRESHOLD, 2);  //--> default value
+    
+    write_subreg(&lprf_hw, SR_RX_LENGTH_H, 0);
+    write_subreg(&lprf_hw, SR_RX_LENGTH_M, 0x10); // 250 bits at 2Mbit/s
+    write_subreg(&lprf_hw, SR_RX_LENGTH_L, 0x40);
+    
+    write_subreg(&lprf_hw, SR_RX_TIMEOUT_H, 0xFF);
+    write_subreg(&lprf_hw, SR_RX_TIMEOUT_M, 0xFF);
+    write_subreg(&lprf_hw, SR_RX_TIMEOUT_L, 0xFF);
+    
+    write_subreg(&lprf_hw, SR_WAKEUPONSPI, 1);
+    write_subreg(&lprf_hw, SR_WAKEUPONRX, 0);
+    write_subreg(&lprf_hw, SR_WAKEUP_MODES_EN, 0);
+    
+    // -> PLL Configuration
+    
+    write_subreg(&lprf_hw, SR_FIFO_RESETB, 0);
+    write_subreg(&lprf_hw, SR_FIFO_RESETB, 1);
+    
+    write_subreg(&lprf_hw, SR_SM_EN, 1);
+    write_subreg(&lprf_hw, SR_SM_RESETB, 0);
+    write_subreg(&lprf_hw, SR_SM_RESETB, 1);
 }
 
 void minimal_demod_configuration()
