@@ -14,6 +14,10 @@
 #include "lprf_driver.h"
 #include "spi_hw_abstraction.h"
 
+#define BIT24_H_BYTE(c) (((c) & 0xFF0000) >> 16)
+#define BIT24_M_BYTE(c) (((c) & 0x00FF00) >> 8)
+#define BIT24_L_BYTE(c) ((c) & 0x0000FF)
+
 static int clk96 = 0;
 static int agc = 0;
 static int osr = 1;
@@ -29,9 +33,12 @@ int find_8bit_pattern(uint8_t *payload, int payload_len, uint8_t pattern);
 int find_16bit_pattern(uint8_t *payload, int payload_len, uint16_t pattern);
 void revert_bit_order_of_frame(uint8_t *payload, uint16_t payload_len);
 int testSpiConnection();
+int calc_vco_tune(int channel_number);
+int set_pll_values(int channel_number, unsigned int f_if);
 void configuration_for_statemaschine();
 void minimal_adc_configuration();
 void minimal_demod_configuration();
+void pll_configuration();
 void manual_PLL_configuration();
 void start_demodulation();
 void chip_configuration();
@@ -50,8 +57,12 @@ int main(int argc, char *argv[])
     
     //chip_configuration();
     //minimal_adc_configuration();
-    //minimal_demod_configuration();
-    configuration_for_statemaschine();
+    minimal_demod_configuration();
+    pll_configuration();
+    start_demodulation();
+    //configuration_for_statemaschine();
+    
+    set_pll_values(11, 1000000);
     
     //start_demodulation();
     
@@ -63,9 +74,11 @@ int main(int argc, char *argv[])
     //write_subreg(&lprf_hw, SR_DEM_CLK96_SEL, 0); // Disables first filter stage
     
     //receive_without_statemachine();
-    receive_with_statemachine();
+    //receive_with_statemachine();
+    //receive_with_statemachine();
+    //receive_with_statemachine();
     
-    usleep(100000);
+    //usleep(100000);
     //read_gain_values();
     
     
@@ -295,9 +308,27 @@ void receive_with_statemachine()
     
     usleep(500000); // For frame read triggerung on oscilloscope
     
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X    PD_OUT=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), read_reg(&lprf_hw, RG_DEM_PD_OUT));
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X    PD_OUT=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), read_reg(&lprf_hw, RG_DEM_PD_OUT));
+    printf("Reset Demod\n");
+    write_subreg(&lprf_hw, SR_DEM_RESETB, 0);
+    write_subreg(&lprf_hw, SR_DEM_RESETB, 1);
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X    PD_OUT=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), read_reg(&lprf_hw, RG_DEM_PD_OUT));
+    //printf("Reset FIFO\n");
+    //write_subreg(&lprf_hw, SR_FIFO_RESETB, 0);
+    //write_subreg(&lprf_hw, SR_FIFO_RESETB, 1);
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X    PD_OUT=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), read_reg(&lprf_hw, RG_DEM_PD_OUT));
     printf("change state to RX     \n");
+    write_subreg(&lprf_hw, SR_SM_RESETB, 0);
+    write_subreg(&lprf_hw, SR_SM_RESETB, 1);
     write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_RX);   //change state to RX
-    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));
+    write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_NONE);  //reset CMD bitfield
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X    PD_OUT=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), read_reg(&lprf_hw, RG_DEM_PD_OUT));
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X    PD_OUT=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), read_reg(&lprf_hw, RG_DEM_PD_OUT));
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X    PD_OUT=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), read_reg(&lprf_hw, RG_DEM_PD_OUT));
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X    PD_OUT=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), read_reg(&lprf_hw, RG_DEM_PD_OUT));
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X    PD_OUT=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), read_reg(&lprf_hw, RG_DEM_PD_OUT));
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X    PD_OUT=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), read_reg(&lprf_hw, RG_DEM_PD_OUT));
     //int i=0;
     
 //     uint8_t sm_state = STATE_RECEIVING;
@@ -320,8 +351,8 @@ void receive_with_statemachine()
         payload_len += payload_len_temp;
     }
     
-    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO));    
-    write_subreg(&lprf_hw, SR_SM_COMMAND, STATE_CMD_NONE);  //reset CMD bitfield
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X    PD_OUT=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), read_reg(&lprf_hw, RG_DEM_PD_OUT));
+    printf("SM_STATE=0x%0.2X     SM_FIFO=0x%0.2X    PD_OUT=%d\n", read_reg(&lprf_hw, RG_SM_STATE), read_reg(&lprf_hw, RG_SM_FIFO), read_reg(&lprf_hw, RG_DEM_PD_OUT)); 
 
     
     //output frame
@@ -599,9 +630,9 @@ void configuration_for_statemaschine()
     
     // write_subreg(&lprf_hw, SR_RSSI_THRESHOLD, 2);  //--> default value
     
-    write_subreg(&lprf_hw, SR_RX_LENGTH_H, 0);
-    write_subreg(&lprf_hw, SR_RX_LENGTH_M, 0x10); // 250 bits at 2Mbit/s
-    write_subreg(&lprf_hw, SR_RX_LENGTH_L, 0x40);
+    write_subreg(&lprf_hw, SR_RX_LENGTH_H, 0);    // 0x00: 250 bits at 2Mbit/s
+    write_subreg(&lprf_hw, SR_RX_LENGTH_M, 0x10); // 0x10: 250 bits at 2Mbit/s
+    write_subreg(&lprf_hw, SR_RX_LENGTH_L, 0x40); // 0x40: 250 bits at 2Mbit/s
     
     write_subreg(&lprf_hw, SR_RX_TIMEOUT_H, 0xFF);
     write_subreg(&lprf_hw, SR_RX_TIMEOUT_M, 0xFF);
@@ -619,6 +650,79 @@ void configuration_for_statemaschine()
     write_subreg(&lprf_hw, SR_SM_EN, 1);
     write_subreg(&lprf_hw, SR_SM_RESETB, 0);
     write_subreg(&lprf_hw, SR_SM_RESETB, 1);
+}
+
+int calc_vco_tune(int channel_number)
+{
+    int vco_tune = 0;
+    if(channel_number >= 11 && channel_number < 17)
+    {
+        vco_tune = -3 * channel_number / 2 + 255;
+        return vco_tune;
+    }
+    
+    if(channel_number >= 17 && channel_number <= 26)
+    {
+        vco_tune = -11 * channel_number / 7 + 244;
+        return vco_tune;
+    }
+    return 0;
+}
+
+int set_pll_values(int channel_number, unsigned int f_if)
+{
+    unsigned int f_rf_MHz = 2405 + 5 * (channel_number - 11);
+    unsigned  int f_rf = f_rf_MHz * 1000000;
+    unsigned  int f_lo = (f_rf - f_if) / 3 * 2;
+    int int_val = f_lo  / 16000000;
+    int frac_val = (f_lo % 16000000) * 228 / 3479;
+    int frac_h = BIT24_H_BYTE(frac_val);
+    int frac_m = BIT24_M_BYTE(frac_val);
+    int frac_l = BIT24_L_BYTE(frac_val);
+    double f_pll = int_val * 16000000. + frac_val * 16000000. / 65536.;
+    
+    int vco_tune = calc_vco_tune(channel_number);
+    
+    printf("Channel number:\t%d\n", channel_number);
+    printf("PLL int val:\t%d\n", int_val);
+    printf("PLL frac val:\t%d bzw. 0x%.6X\n", frac_val, frac_val);
+    printf("VCO tune:\t%d bzw. 0x%.2X\n", vco_tune, vco_tune);
+    printf("\n");
+    
+    write_subreg(&lprf_hw, SR_PLL_CHN_INT, int_val);
+    write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_H, BIT24_H_BYTE(frac_val));
+    write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_M, BIT24_M_BYTE(frac_val));
+    write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_L, BIT24_L_BYTE(frac_val));
+    write_subreg(&lprf_hw, SR_PLL_VCO_TUNE, vco_tune);
+    
+    return 0;
+
+}
+
+void pll_configuration()
+{
+    write_subreg(&lprf_hw, SR_PLL_REF96_SEL, 0);
+    write_subreg(&lprf_hw, SR_PLL_MOD_EN, 0);
+    write_subreg(&lprf_hw, SR_PLL_MOD_FREQ_DEV, 0);
+    write_subreg(&lprf_hw, SR_IREF_PLL_CTRLB, 0);
+    write_subreg(&lprf_hw, SR_PLL_VCO_TUNE, 235);
+    write_subreg(&lprf_hw, SR_PLL_LPF_C, 0);
+    write_subreg(&lprf_hw, SR_PLL_LPF_R, 9);
+    write_subreg(&lprf_hw, SR_PLL_CHN_INT, 100);
+    write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_H, 0);
+    write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_M, 0);
+    write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_L, 0);
+    write_subreg(&lprf_hw, SR_LDO_PLL, 1);
+    write_subreg(&lprf_hw, SR_LDO_VCO, 1);
+    write_subreg(&lprf_hw, SR_LDO_PLL_VOUT, 31);
+    write_subreg(&lprf_hw, SR_LDO_VCO_VOUT, 31);
+    write_subreg(&lprf_hw, SR_PLL_BUFFER_EN, 1); 
+    write_subreg(&lprf_hw, SR_PLL_EN, 1);
+    
+    write_subreg(&lprf_hw, SR_RX_LO_EXT, 0); 
+    
+    write_subreg(&lprf_hw, SR_PLL_RESETB, 0);
+    write_subreg(&lprf_hw, SR_PLL_RESETB, 1);
 }
 
 void minimal_demod_configuration()
@@ -639,7 +743,7 @@ void minimal_demod_configuration()
     write_subreg(&lprf_hw, SR_DEM_PD_EN, 1); // needs to be enabled if fifo is used
     write_subreg(&lprf_hw, SR_DEM_AGC_EN, 1);
     write_subreg(&lprf_hw, SR_DEM_FREQ_OFFSET_CAL_EN, 0);
-    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 0);
+    write_subreg(&lprf_hw, SR_DEM_OSR_SEL, 1);
     write_subreg(&lprf_hw, SR_DEM_BTLE_MODE, 1);
     
     write_subreg(&lprf_hw, SR_DEM_IF_SEL, 2);
