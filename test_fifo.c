@@ -654,19 +654,26 @@ void configuration_for_statemaschine()
 
 int calc_vco_tune(int channel_number)
 {
-    int vco_tune = 0;
-    if(channel_number >= 11 && channel_number < 17)
+    switch(channel_number)
     {
-        vco_tune = -3 * channel_number / 2 + 255;
-        return vco_tune;
+    case 11: return 237;
+    case 12: return 235;
+    case 13: return 234;
+    case 14: return 232;
+    case 15: return 231;
+    case 16: return 223;
+    case 17: return 222;
+    case 18: return 220;
+    case 19: return 213;
+    case 20: return 212;
+    case 21: return 210;
+    case 22: return 209;
+    case 23: return 207;
+    case 24: return 206;
+    case 25: return 206;
+    case 26: return 204;
+    default: return 0;
     }
-    
-    if(channel_number >= 17 && channel_number <= 26)
-    {
-        vco_tune = -11 * channel_number / 7 + 244;
-        return vco_tune;
-    }
-    return 0;
 }
 
 int set_pll_values(int channel_number, unsigned int f_if)
@@ -714,8 +721,8 @@ void pll_configuration()
     write_subreg(&lprf_hw, SR_PLL_CHN_FRAC_L, 0);
     write_subreg(&lprf_hw, SR_LDO_PLL, 1);
     write_subreg(&lprf_hw, SR_LDO_VCO, 1);
-    write_subreg(&lprf_hw, SR_LDO_PLL_VOUT, 31);
-    write_subreg(&lprf_hw, SR_LDO_VCO_VOUT, 31);
+    write_subreg(&lprf_hw, SR_LDO_PLL_VOUT, 0x16);
+    write_subreg(&lprf_hw, SR_LDO_VCO_VOUT, 0x16);
     write_subreg(&lprf_hw, SR_PLL_BUFFER_EN, 1); 
     write_subreg(&lprf_hw, SR_PLL_EN, 1);
     
@@ -823,7 +830,7 @@ void minimal_adc_configuration()
     write_subreg(&lprf_hw, SR_LDO_A, 1);           //Enable LDOs
     write_subreg(&lprf_hw, SR_LDO_A_VOUT, 0x11);     //configure LDOs
     
-    write_subreg(&lprf_hw, SR_LDO_D_VOUT, 0x12);     //configure LDOs
+    write_subreg(&lprf_hw, SR_LDO_D_VOUT, 0x17);     //configure LDOs
 }
 
 void manual_PLL_configuration()
